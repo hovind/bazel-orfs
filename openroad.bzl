@@ -301,6 +301,8 @@ def get_entrypoint_cmd(
     cmd += " make "
     if not debug_prints:
         cmd += "--silent "
+    else:
+        cmd += "--trace "
     if (make_targets != None):
         cmd += make_targets
 
