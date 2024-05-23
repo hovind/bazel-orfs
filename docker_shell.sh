@@ -24,6 +24,13 @@ if [[ $DIR == */external/bazel-orfs~override ]]; then
 else
 	WORKSPACE_ROOT=$(realpath $DIR/../../../../..)
 fi
+
+if [[ $DIR == /github/home/* ]]; then
+	WORKSPACE_MAPPING=/home/ascenium/actions-runner/_work/_temp/_github_home/:/github/home/
+else
+	WORKSPACE_MAPPING=$WORKSPACE_ROOT:$WORKSPACE_ROOT
+fi
+
 WORKSPACE_EXECROOT=$WORKSPACE_ROOT/execroot/_main
 WORKSPACE_EXTERNAL=$WORKSPACE_ROOT/external
 
@@ -100,8 +107,8 @@ function run_docker() {
 	-e MAKE_PATTERN=$MAKE_PATTERN_PREFIXED \
 	-e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
 	$MOCK_AREA_TCL_PREFIXED \
-	-v $WORKSPACE_ROOT:$WORKSPACE_ROOT:z \
-	-v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN:z \
+	-v $WORKSPACE_MAPPING \
+	-v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
 	-w $WORKSPACE_EXECROOT \
 	--network host \
 	$DOCKER_INTERACTIVE \
