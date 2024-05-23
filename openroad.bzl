@@ -302,7 +302,7 @@ def get_entrypoint_cmd(
     if not debug_prints:
         cmd += "--silent "
     else:
-        cmd += "--trace "
+        cmd += "--trace --print-data-base "
     if (make_targets != None):
         cmd += make_targets
 
