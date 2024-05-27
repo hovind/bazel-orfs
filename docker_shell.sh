@@ -25,20 +25,8 @@ else
 	WORKSPACE_ROOT=$(realpath $DIR/../../../../..)
 fi
 
-if [[ $DIR == /github/home/* ]]; then
-	WORKSPACE_MAPPING=/home/ascenium/actions-runner/_work/_temp/_github_home/:/github/home/
-else
-	WORKSPACE_MAPPING=$WORKSPACE_ROOT:$WORKSPACE_ROOT
-fi
-
 WORKSPACE_EXECROOT=$WORKSPACE_ROOT/execroot/_main
 WORKSPACE_EXTERNAL=$WORKSPACE_ROOT/external
-
-# Automatically mount bazel-orfs directory if it is used as module with local_path_override
-if [[ $DIR == */external/bazel-orfs~override ]]; then
-	BAZLE_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
-	DOCKER_ARGS="$DOCKER_ARGS -v $BAZLE_ORFS_DIR:$BAZLE_ORFS_DIR"
-fi
 
 if [[ "${1}" == "--interactive" ]]; then
 	if ! test -t 0; then
@@ -57,6 +45,20 @@ export FLOW_HOME="/OpenROAD-flow-scripts/flow/"
 # Get path to the bazel workspace
 # Take first symlink from the workspace, follow it and fetch the directory name
 export WORKSPACE_ORIGIN=$(dirname $(find $WORKSPACE_EXECROOT -maxdepth 1 -type l -exec realpath {} \; -quit))
+
+if [[ $DIR == /github/* ]] || [[ $DIR == /__w/* ]]; then
+	ORIGIN_MAPPING=/home/ascenium/actions-runner/_work:/__w
+	WORKSPACE_MAPPING=/home/ascenium/actions-runner/_work/_temp/_github_home/:/github/home/
+else
+	ORIGIN_MAPPING=$WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN
+	WORKSPACE_MAPPING=$WORKSPACE_ROOT:$WORKSPACE_ROOT
+
+	# Automatically mount bazel-orfs directory if it is used as module with local_path_override
+	if [[ $DIR == */external/bazel-orfs~override ]]; then
+		BAZLE_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
+		DOCKER_ARGS="$DOCKER_ARGS -v $BAZLE_ORFS_DIR:$BAZLE_ORFS_DIR"
+	fi
+fi
 
 # Assume that when docker flow is called from external repository,
 # the path to dependencies from bazel-orfs workspace will start with "external".
@@ -108,7 +110,7 @@ function run_docker() {
 	-e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
 	$MOCK_AREA_TCL_PREFIXED \
 	-v $WORKSPACE_MAPPING \
-	-v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
+	-v $ORIGIN_MAPPING \
 	-w $WORKSPACE_EXECROOT \
 	--network host \
 	$DOCKER_INTERACTIVE \
