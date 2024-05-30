@@ -27,10 +27,13 @@ fi
 WORKSPACE_EXECROOT=$WORKSPACE_ROOT/execroot/_main
 WORKSPACE_EXTERNAL=$WORKSPACE_ROOT/external
 
-# Automatically mount bazel-orfs directory if it is used as module with local_path_override
-if [[ $DIR == */external/bazel-orfs~override ]]; then
-	BAZEL_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
-	DOCKER_ARGS="$DOCKER_ARGS -v $BAZEL_ORFS_DIR:$BAZEL_ORFS_DIR"
+if [[ -z "$DOCKER_ARGS" ]]; then
+	# Automatically mount bazel-orfs directory if it is used as module with local_path_override
+	DOCKER_ARGS="-v $WORKSPACE_ROOT:$WORKSPACE_ROOT -v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN"
+	if [[ $DIR == */external/bazel-orfs~override ]]; then
+		BAZEL_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
+		DOCKER_ARGS="$DOCKER_ARGS -v $BAZEL_ORFS_DIR:$BAZEL_ORFS_DIR"
+	fi
 fi
 
 if [[ "${1}" == "--interactive" ]]; then
@@ -100,8 +103,6 @@ function run_docker() {
 	-e MAKE_PATTERN=$MAKE_PATTERN_PREFIXED \
 	-e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
 	$MOCK_AREA_TCL_PREFIXED \
-	-v $WORKSPACE_ROOT:$WORKSPACE_ROOT \
-	-v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
 	-w $WORKSPACE_EXECROOT \
 	--network host \
 	$DOCKER_INTERACTIVE \
