@@ -255,6 +255,7 @@ def get_entrypoint_cmd(
         stage_config,
         use_docker_flow = True,
         make_targets = None,
+        docker_args = None,
         docker_image = None,
         mock_area = False,
         entrypoint = None,
@@ -302,6 +303,8 @@ def get_entrypoint_cmd(
     cmd += " RULEDIR=$(RULEDIR)" + fmt_whitespace
     if debug_prints:
         cmd += " DEBUG_PRINTS=1" + fmt_whitespace
+    if docker_args != None:
+        cmd += "DOCKER_ARGS=\"" + docker_args + "\"" + fmt_whitespace
     cmd += entrypoint
     if interactive:
         cmd += " --interactive"
@@ -323,6 +326,7 @@ def mock_area_stages(
         outs,
         variant,
         mock_area,
+        docker_args,
         docker_image,
         debug_prints = False,
         external_pdk = None):
@@ -396,7 +400,7 @@ def mock_area_stages(
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
             cmd = select({
                 "@bazel-orfs//:remote_exec": "FLOW_HOME=/OpenROAD-flow-scripts/flow " + get_entrypoint_cmd(make_pattern, design_config, stage_config, False, make_targets, mock_area = (stage == "floorplan"), debug_prints = debug_prints, fmt_whitespace = " "),
-                "//conditions:default": get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan"), debug_prints = debug_prints, fmt_whitespace = " "),
+                "//conditions:default": get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_args = docker_args, docker_image = docker_image, mock_area = (stage == "floorplan"), debug_prints = debug_prints, fmt_whitespace = " "),
             }),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
             tags = ["supports-graceful-termination"],
@@ -553,6 +557,7 @@ def build_openroad(
         mock_area = None,
         platform = "asap7",
         macro_variant = "base",
+        docker_args = None,
         docker_image = "openroad/flow-ubuntu22.04-builder:latest",
         debug_prints = False,
         external_pdk = None):
@@ -704,6 +709,7 @@ def build_openroad(
             stage_config,
             True,
             entrypoint = Label("//:docker_shell"),
+            docker_args = docker_args,
             docker_image = docker_image,
             interactive = True,
             debug_prints = debug_prints,
@@ -760,7 +766,7 @@ def build_openroad(
     )
 
     if mock_area != None:
-        mock_area_stages(target_name, name, stage_sources, stage_args, outs, variant, mock_area, docker_image, external_pdk)
+        mock_area_stages(target_name, name, stage_sources, stage_args, outs, variant, mock_area, docker_args, docker_image, external_pdk)
 
     # _make targets
     for (previous, stage) in zip(["n/a"] + stages, stages):
@@ -790,7 +796,7 @@ def build_openroad(
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
             cmd = select({
                 "@bazel-orfs//:remote_exec": "FLOW_HOME=/OpenROAD-flow-scripts/flow " + get_entrypoint_cmd(make_pattern, design_config, stage_config, False, make_targets, debug_prints = debug_prints, fmt_whitespace = " "),
-                "//conditions:default": get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, debug_prints = debug_prints, fmt_whitespace = " "),
+                "//conditions:default": get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_args = docker_args, docker_image = docker_image, debug_prints = debug_prints, fmt_whitespace = " "),
             }),
             outs = outs.get(stage, []),
             tags = ["supports-graceful-termination"],

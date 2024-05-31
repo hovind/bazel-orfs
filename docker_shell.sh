@@ -29,8 +29,8 @@ WORKSPACE_EXTERNAL=$WORKSPACE_ROOT/external
 
 # Automatically mount bazel-orfs directory if it is used as module with local_path_override
 if [[ $DIR == */external/bazel-orfs~override ]]; then
-	BAZLE_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
-	DOCKER_ARGS="$DOCKER_ARGS -v $BAZLE_ORFS_DIR:$BAZLE_ORFS_DIR"
+	BAZEL_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
+	DOCKER_ARGS="$DOCKER_ARGS -v $BAZEL_ORFS_DIR:$BAZEL_ORFS_DIR"
 fi
 
 if [[ "${1}" == "--interactive" ]]; then
