@@ -618,6 +618,7 @@ def build_openroad(
     # gds_args = (["ADDITIONAL_GDS_FILES=" + ADDITIONAL_GDS_FILES] if len(macros) > 0 else [])
 
     SDC_FILE_CLOCK_PERIOD = outs["clock_period"][0]
+
     # Get only the first source from constraints
     SDC_FILE = ["SDC_FILE=$$(echo '$(locations " + sdc_constraints + ")' | cut -d' ' -f 1)"] if sdc_constraints != None else []
 
