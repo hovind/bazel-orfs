@@ -555,7 +555,8 @@ def build_openroad(
         macro_variant = "base",
         docker_image = "openroad/flow-ubuntu22.04-builder:latest",
         debug_prints = False,
-        external_pdk = None):
+        external_pdk = None,
+        visibility = ["//visibility:private"]):
     """
     Spawns targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -797,7 +798,7 @@ def build_openroad(
             }),
             outs = outs.get(stage, []),
             tags = ["supports-graceful-termination"],
-            visibility = ["//visibility:private"],
+            visibility = visibility,
         )
 
         # Target building `target_name` `stage` dependencies and generating `stage` scripts
