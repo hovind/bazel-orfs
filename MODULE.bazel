@@ -4,6 +4,7 @@ module(
     compatibility_level = 1,
 )
 
+bazel_dep(name = "patchelf", version = "0.18.0")
 bazel_dep(name = "rules_oci", version = "1.7.4")
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
@@ -23,3 +24,32 @@ use_repo(oci, "orfs_image")
 #    patches = ["//external_pdk:external_pdk.patch"],
 #    urls = "",
 #)
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "com_docker_download",
+    build_file_content = """
+export_files(
+  ["docker"],
+  visibility = ["//visibility:public"],
+)
+""",
+    strip_prefix = "docker",
+    sha256 = "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
+    urls = ["https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz"],
+)
+
+docker_pkg = use_repo_rule("//:docker.bzl", "docker_pkg")
+docker_pkg(
+    name = "docker_orfs",
+    build_file = ":docker.BUILD",
+    docker_file = ":Dockerfile",
+    strip_prefixes = {
+        "OpenROAD-flow-scripts/flow": "flow/",
+        "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
+        "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
+        "usr/lib/x86_64-linux-gnu/": "lib/",
+    },
+    sha256 = "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
+    timeout = 3600,
+)
