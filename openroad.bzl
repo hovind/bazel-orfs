@@ -234,91 +234,6 @@ floorplan = rule(
     executable = False,
 )
 
-def _place_impl(ctx):
-    log = ctx.actions.declare_file("logs/asap7/tag_array_64x184/base/3_1_place_gp_skip_io.log")
-    rpt = ctx.actions.declare_file("reports/asap7/tag_array_64x184/base/5_global_place.rpt")
-
-    odb_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/3_place.odb")
-    sdc_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/3_place.sdc")
-
-    transitive = [
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-    ]
-
-    ctx.actions.run(
-        arguments = [
-            "--file",
-            ctx.file._makefile.path,
-            "do-3_1_place_gp_skip_io",
-            "do-3_2_place_iop",
-            "do-3_3_place_gp",
-            "do-3_4_place_resized",
-            "do-3_5_place_dp",
-            "do-3_place",
-            "do-3_place.sdc",
-        ],
-        executable = "make",
-        env = {
-            "WORK_HOME": ctx.genfiles_dir.path,
-            "HOME": ctx.genfiles_dir.path,
-            "DESIGN_CONFIG": ctx.file.design_config.path,
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "OPENROAD_EXE": ctx.executable._openroad.path,
-        },
-        inputs = depset(
-            ctx.files.odb + ctx.files._libs + [ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
-            transitive = transitive,
-        ),
-        outputs = [odb_out, sdc_out, log, rpt],
-    )
-
-    return [
-        DefaultInfo(
-            runfiles = ctx.runfiles(files = []),
-            files = depset([odb_out, sdc_out]),
-        ),
-        OutputGroupInfo(
-            logs = depset([log]),
-            reports = depset([rpt]),
-        ),
-    ]
-
-place = rule(
-    implementation = _place_impl,
-    attrs = {
-        "odb": attr.label(
-            providers = [DefaultInfo],
-        ),
-        "design_config": attr.label(
-            allow_single_file = True,
-            doc = "Design configuration.",
-            mandatory = True,
-        ),
-        "_libs": attr.label_list(
-            doc = "Cell library.",
-            allow_files = True,
-            default = [Label("@docker_orfs//:lib")],
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_openroad": attr.label(
-            doc = "OpenROAD binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
-        ),
-    },
-    provides = [DefaultInfo],
-    executable = False,
-)
-
 def openroad_attrs():
     return {
         "odb": attr.label(
@@ -348,7 +263,11 @@ def openroad_attrs():
         ),
     }
 
-def _make_impl(stage, log_names, report_names, steps, ctx):
+def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
+    objects = []
+    for object in object_names:
+        objects.append(ctx.actions.declare_file("objects/asap7/tag_array_64x184/base/{}".format(object)))
+
     logs = []
     for log in log_names:
         logs.append(ctx.actions.declare_file("logs/asap7/tag_array_64x184/base/{}".format(log)))
@@ -398,9 +317,36 @@ def _make_impl(stage, log_names, report_names, steps, ctx):
         ),
     ]
 
+place = rule(
+    implementation = lambda ctx: _make_impl(
+        stage = "3_place",
+        object_names = [],
+        log_names = [
+            "3_1_place_gp_skip_io.log",
+        ],
+        report_names = [
+            "5_global_place.rpt",
+        ],
+        steps = [
+            "do-3_1_place_gp_skip_io",
+            "do-3_2_place_iop",
+            "do-3_3_place_gp",
+            "do-3_4_place_resized",
+            "do-3_5_place_dp",
+            "do-3_place",
+            "do-3_place.sdc",
+        ],
+        ctx = ctx,
+    ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo],
+    executable = False,
+)
+
 cts = rule(
     implementation = lambda ctx: _make_impl(
         stage = "4_cts",
+        object_names = [],
         log_names = [
             "4_1_cts.log",
         ],
@@ -421,6 +367,7 @@ cts = rule(
 route = rule(
     implementation = lambda ctx: _make_impl(
         stage = "5_route",
+        object_names = [],
         log_names = [
             "5_1_grt.log",
             "5_2_fillcell.log",
@@ -448,6 +395,7 @@ route = rule(
 final = rule(
     implementation = lambda ctx: _make_impl(
         stage = "6_final",
+        object_names = [],
         log_names = [
             "6_report.log",
             "6_report.json",
