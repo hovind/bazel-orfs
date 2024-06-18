@@ -1,5 +1,5 @@
 load("@rules_oci//oci:defs.bzl", "oci_tarball")
-load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "create_out_rule")
+load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "cheat", "create_out_rule", "floorplan", "place", "synth")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -50,9 +50,35 @@ filegroup(
     name = "constraints-sram",
     srcs = [
         "test/constraints-sram.sdc",
+    ],
+    data = [
         ":util",
     ],
     visibility = [":__subpackages__"],
+)
+
+synth(
+    name = "test_synth",
+    design_config = "tag_array_64x184.mk",
+    verilog_files = ["test/mock/tag_array_64x184.sv"],
+)
+
+floorplan(
+    name = "test_floor",
+    constraint_file = ":constraints-sram",
+    design_config = "tag_array_64x184.mk",
+    netlist = ":test_synth",
+)
+
+place(
+    name = "test_place",
+    design_config = "tag_array_64x184.mk",
+    odb = ":test_floor",
+)
+
+cheat(
+    name = "cheat",
+    source_file = "cheat.sh",
 )
 
 build_openroad(

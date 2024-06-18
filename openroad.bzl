@@ -1,3 +1,324 @@
+def _cheat_impl(ctx):
+    transitive = depset([], transitive = [
+        ctx.attr._yosys[DefaultInfo].default_runfiles.files,
+        ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ])
+
+    ctx.actions.expand_template(
+        template = ctx.file._template,
+        output = ctx.outputs.source_file,
+        substitutions = {
+            "{YOSYS_PATH}": ctx.executable._yosys.path,
+            "{OPENROAD_PATH}": "TODO",  #ctx.executable._openroad.path,
+            "{MAKEFILE_PATH}": ctx.file._makefile.path,
+            "{MAKEFILE_DIR}": ctx.file._makefile.dirname,
+        },
+    )
+    return [DefaultInfo(
+        runfiles = ctx.runfiles(files = [], transitive_files = transitive),
+        files = depset([ctx.outputs.source_file]),
+    )]
+
+cheat = rule(
+    implementation = _cheat_impl,
+    attrs = {
+        "source_file": attr.output(mandatory = True),
+        "_libs": attr.label_list(
+            doc = "Cell library.",
+            allow_files = True,
+            default = [Label("@docker_orfs//:lib")],
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_yosys_share": attr.label(
+            doc = "Yosys share.",
+            allow_files = True,
+            default = Label("@docker_orfs//:share"),
+        ),
+        "_yosys": attr.label(
+            doc = "Yosys binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys"),
+        ),
+        "_template": attr.label(
+            default = ":cheat.sh.tpl",
+            allow_single_file = True,
+        ),
+    },
+)
+
+def _synth_impl(ctx):
+    out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.v")
+
+    transitive = [
+        ctx.attr._yosys[DefaultInfo].default_runfiles.files,
+        ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    ctx.actions.run(
+        arguments = ["--trace", "--file", ctx.file._makefile.path, "do-yosys", "do-synth"],
+        executable = "make",
+        env = {
+            "WORK_HOME": ctx.genfiles_dir.path,
+            "DESIGN_CONFIG": ctx.file.design_config.path,
+            "FLOW_HOME": ctx.file._makefile.dirname,
+            "YOSYS_CMD": ctx.executable._yosys.path,
+            "VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files]),
+        },
+        inputs = depset(
+            ctx.files.verilog_files + ctx.files._libs + ctx.files._yosys_share + [ctx.executable._yosys, ctx.file._makefile, ctx.file.design_config],
+            transitive = transitive,
+        ),
+        outputs = [out],
+    )
+
+    return [DefaultInfo(
+        runfiles = ctx.runfiles(files = []),
+        files = depset([out]),
+    )]
+
+synth = rule(
+    implementation = _synth_impl,
+    attrs = {
+        "verilog_files": attr.label_list(
+            allow_files = [
+                ".v",
+                ".sv",
+            ],
+            allow_rules = [
+            ],
+            providers = [DefaultInfo],
+        ),
+        "design_config": attr.label(
+            allow_single_file = True,
+            doc = "Design configuration.",
+            mandatory = True,
+        ),
+        "_libs": attr.label_list(
+            doc = "Cell library.",
+            allow_files = True,
+            default = [Label("@docker_orfs//:lib")],
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_yosys_share": attr.label(
+            doc = "Yosys share.",
+            allow_files = True,
+            default = Label("@docker_orfs//:share"),
+        ),
+        "_yosys": attr.label(
+            doc = "Yosys binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys"),
+        ),
+    },
+    provides = [DefaultInfo],
+    executable = False,
+)
+
+def _floorplan_impl(ctx):
+    sdc = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.sdc")
+    log = ctx.actions.declare_file("logs/asap7/tag_array_64x184/base/2_1_floorplan.log")
+    rpt = ctx.actions.declare_file("reports/asap7/tag_array_64x184/base/2_floorplan_final.rpt")
+    copyright = ctx.actions.declare_file("objects/asap7/tag_array_64x184/base/copyright.txt")
+
+    odb_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/2_floorplan.odb")
+    sdc_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/2_floorplan.sdc")
+
+    ctx.actions.symlink(output = sdc, target_file = ctx.file.constraint_file)
+
+    transitive = [
+        ctx.attr.constraint_file[DefaultInfo].default_runfiles.files,
+        ctx.attr.constraint_file[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    ctx.actions.run(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+            "do-2_1_floorplan",
+            "do-2_2_floorplan_io",
+            "do-2_3_floorplan_tdms",
+            "do-2_4_floorplan_macro",
+            "do-2_5_floorplan_tapcell",
+            "do-2_6_floorplan_pdn",
+            "do-2_floorplan",
+        ],
+        executable = "make",
+        env = {
+            "WORK_HOME": ctx.genfiles_dir.path,
+            "HOME": ctx.genfiles_dir.path,
+            "DESIGN_CONFIG": ctx.file.design_config.path,
+            "FLOW_HOME": ctx.file._makefile.dirname,
+            "OPENROAD_EXE": ctx.executable._openroad.path,
+            "CORE_UTILIZATION": "40",
+            "CORE_ASPECT_RATIO": "2",
+        },
+        inputs = depset(
+            ctx.files._libs + [sdc, ctx.file.netlist, ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
+            transitive = transitive,
+        ),
+        outputs = [odb_out, sdc_out, log, rpt, copyright],
+    )
+
+    return [
+        DefaultInfo(
+            runfiles = ctx.runfiles(files = []),
+            files = depset([odb_out, sdc_out]),
+        ),
+        OutputGroupInfo(
+            logs = depset([log]),
+            reports = depset([rpt]),
+        ),
+    ]
+
+floorplan = rule(
+    implementation = _floorplan_impl,
+    attrs = {
+        "netlist": attr.label(
+            allow_single_file = [
+                ".v",
+                ".sv",
+            ],
+            allow_rules = [
+            ],
+            providers = [DefaultInfo],
+        ),
+        "constraint_file": attr.label(
+            allow_single_file = True,
+            doc = "Constraint file.",
+            mandatory = True,
+        ),
+        "design_config": attr.label(
+            allow_single_file = True,
+            doc = "Design configuration.",
+            mandatory = True,
+        ),
+        "_libs": attr.label_list(
+            doc = "Cell library.",
+            allow_files = True,
+            default = [Label("@docker_orfs//:lib")],
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
+        ),
+    },
+    provides = [DefaultInfo],
+    executable = False,
+)
+
+def _place_impl(ctx):
+    log = ctx.actions.declare_file("logs/asap7/tag_array_64x184/base/3_1_place_gp_skip_io.log")
+    rpt = ctx.actions.declare_file("reports/asap7/tag_array_64x184/base/5_global_place.rpt")
+
+    odb_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/3_place.odb")
+    sdc_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/3_place.sdc")
+
+    transitive = [
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    ctx.actions.run(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+            "do-3_1_place_gp_skip_io",
+            "do-3_2_place_iop",
+            "do-3_3_place_gp",
+            "do-3_4_place_resized",
+            "do-3_5_place_dp",
+            "do-3_place",
+            "do-3_place.sdc",
+        ],
+        executable = "make",
+        env = {
+            "WORK_HOME": ctx.genfiles_dir.path,
+            "HOME": ctx.genfiles_dir.path,
+            "DESIGN_CONFIG": ctx.file.design_config.path,
+            "FLOW_HOME": ctx.file._makefile.dirname,
+            "OPENROAD_EXE": ctx.executable._openroad.path,
+        },
+        inputs = depset(
+            ctx.files.odb + ctx.files._libs + [ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
+            transitive = transitive,
+        ),
+        outputs = [odb_out, sdc_out, log, rpt],
+    )
+
+    return [
+        DefaultInfo(
+            runfiles = ctx.runfiles(files = []),
+            files = depset([odb_out, sdc_out]),
+        ),
+        OutputGroupInfo(
+            logs = depset([log]),
+            reports = depset([rpt]),
+        ),
+    ]
+
+place = rule(
+    implementation = _place_impl,
+    attrs = {
+        "odb": attr.label(
+            providers = [DefaultInfo],
+        ),
+        "design_config": attr.label(
+            allow_single_file = True,
+            doc = "Design configuration.",
+            mandatory = True,
+        ),
+        "_libs": attr.label_list(
+            doc = "Cell library.",
+            allow_files = True,
+            default = [Label("@docker_orfs//:lib")],
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
+        ),
+    },
+    provides = [DefaultInfo],
+    executable = False,
+)
+
 """
 This module contains a definiton of build_openroad() macro used for declaring
 targets for running physical design flow with OpenROAD-flow-scripts.

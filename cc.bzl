@@ -20,7 +20,7 @@ def _cc_patch(ctx, input):
 
     return [DefaultInfo(
         executable = out,
-        runfiles = runfiles,
+        runfiles = runfiles.merge(ctx.runfiles(files = ctx.files.data)),
         files = depset([out]),
     )]
 
@@ -44,6 +44,7 @@ cc_import_binary = rule(
             allow_files = True,
             cfg = "exec",
         ),
+        "data": attr.label_list(allow_files = True),
         "deps": attr.label_list(
             allow_files = [
                 ".ld",
@@ -80,6 +81,7 @@ cc_import_library = rule(
             allow_single_file = [".so"],
             cfg = "exec",
         ),
+        "data": attr.label_list(allow_files = True),
         "deps": attr.label_list(
             allow_files = [
                 ".ld",

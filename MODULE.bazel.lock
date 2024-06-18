@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "07e4368cfbbe05abdb79ca996ef48d3d03592f5e8efe0706a34907e00a126e9c",
+  "moduleFileHash": "74de7979fa9616196d8d784ca9e766fc9e6847e6efe036a7117a7796455ad519",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -30,7 +30,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 9,
+            "line": 10,
             "column": 20
           },
           "imports": {
@@ -51,8 +51,69 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 10,
+                "line": 11,
                 "column": 9
+              }
+            }
+          ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "//:MODULE.bazel",
+          "extensionName": "_repo_rules",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 0,
+            "column": 0
+          },
+          "imports": {
+            "com_docker_download": "com_docker_download",
+            "docker_orfs": "docker_orfs"
+          },
+          "devImports": [],
+          "tags": [
+            {
+              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+              "attributeValues": {
+                "build_file_content": "\nexport_files(\n  [\"docker\"],\n  visibility = [\"//visibility:public\"],\n)\n",
+                "sha256": "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
+                "strip_prefix": "docker",
+                "urls": [
+                  "https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz"
+                ],
+                "name": "com_docker_download"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 30,
+                "column": 13
+              }
+            },
+            {
+              "tagName": "//:docker.bzl%docker_pkg",
+              "attributeValues": {
+                "timeout": 3600,
+                "build_file": ":docker.BUILD",
+                "docker_file": ":Dockerfile",
+                "sha256": "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
+                "strip_prefixes": {
+                  "OpenROAD-flow-scripts/flow": "flow/",
+                  "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
+                  "OpenROAD-flow-scripts/tools/install/yosys/bin/": "bin/",
+                  "OpenROAD-flow-scripts/tools/install/yosys/share/": "share/",
+                  "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
+                  "usr/lib/x86_64-linux-gnu/": "lib/"
+                },
+                "name": "docker_orfs"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 45,
+                "column": 11
               }
             }
           ],
@@ -61,9 +122,40 @@
         }
       ],
       "deps": {
+        "patchelf": "patchelf@0.18.0",
         "rules_oci": "rules_oci@1.7.4",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
+      }
+    },
+    "patchelf@0.18.0": {
+      "name": "patchelf",
+      "version": "0.18.0",
+      "key": "patchelf@0.18.0",
+      "repoName": "patchelf",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [],
+      "deps": {
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "name": "patchelf~0.18.0",
+          "urls": [
+            "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0.tar.gz"
+          ],
+          "integrity": "sha256-ZN4Q5Ma4uDedt+h/WAMPM26nR8BRXzgRMugQ2/hKhuc=",
+          "strip_prefix": "patchelf-0.18.0",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/patchelf/0.18.0/patches/0001-Add-MODULE.bazel.patch": "sha256-Z+FqoJDCCuMJroFSn/dQRBtOCtq4ZY8wCAkRkXGX9mM=",
+            "https://bcr.bazel.build/modules/patchelf/0.18.0/patches/0002-Add-BUILD.bazel.patch": "sha256-H/tH14FO0cEmkl7Ff8vhIYCVfhLFGab2RJHMoEymQPE="
+          },
+          "remote_patch_strip": 1
+        }
       }
     },
     "rules_oci@1.7.4": {
@@ -818,6 +910,47 @@
     }
   },
   "moduleExtensions": {
+    "//:MODULE.bazel%_repo_rules": {
+      "general": {
+        "bzlTransitiveDigest": "033DjrCA3daNwfv0vSVcZh0YyQ7XtW5arK5c4fESYe4=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "com_docker_download": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\nexport_files(\n  [\"docker\"],\n  visibility = [\"//visibility:public\"],\n)\n",
+              "sha256": "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
+              "strip_prefix": "docker",
+              "urls": [
+                "https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz"
+              ],
+              "name": "_main~_repo_rules~com_docker_download"
+            }
+          },
+          "docker_orfs": {
+            "bzlFile": "@@//:docker.bzl",
+            "ruleClassName": "docker_pkg",
+            "attributes": {
+              "timeout": 3600,
+              "build_file": "@@//:docker.BUILD",
+              "docker_file": "@@//:Dockerfile",
+              "sha256": "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
+              "strip_prefixes": {
+                "OpenROAD-flow-scripts/flow": "flow/",
+                "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
+                "OpenROAD-flow-scripts/tools/install/yosys/bin/": "bin/",
+                "OpenROAD-flow-scripts/tools/install/yosys/share/": "share/",
+                "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
+                "usr/lib/x86_64-linux-gnu/": "lib/"
+              },
+              "name": "_main~_repo_rules~docker_orfs"
+            }
+          }
+        }
+      }
+    },
     "@@apple_support~1.5.0//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "pMLFCYaRPkgXPQ8vtuNkMfiHfPmRBy6QJfnid4sWfv0=",
