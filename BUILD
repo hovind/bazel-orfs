@@ -1,5 +1,5 @@
 load("@rules_oci//oci:defs.bzl", "oci_tarball")
-load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "cheat", "create_out_rule", "floorplan", "place", "synth")
+load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "cheat", "create_out_rule", "cts", "final", "floorplan", "place", "route", "synth")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -74,6 +74,24 @@ place(
     name = "test_place",
     design_config = "tag_array_64x184.mk",
     odb = ":test_floor",
+)
+
+cts(
+    name = "test_cts",
+    design_config = "tag_array_64x184.mk",
+    odb = ":test_place",
+)
+
+route(
+    name = "test_route",
+    design_config = "tag_array_64x184.mk",
+    odb = ":test_cts",
+)
+
+final(
+    name = "test_final",
+    design_config = "tag_array_64x184.mk",
+    odb = ":test_route",
 )
 
 cheat(

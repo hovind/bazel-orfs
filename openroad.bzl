@@ -319,6 +319,158 @@ place = rule(
     executable = False,
 )
 
+def openroad_attrs():
+    return {
+        "odb": attr.label(
+            providers = [DefaultInfo],
+        ),
+        "design_config": attr.label(
+            allow_single_file = True,
+            doc = "Design configuration.",
+            mandatory = True,
+        ),
+        "_libs": attr.label_list(
+            doc = "Cell library.",
+            allow_files = True,
+            default = [Label("@docker_orfs//:lib")],
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
+        ),
+    }
+
+def _make_impl(stage, log_names, report_names, steps, ctx):
+    logs = []
+    for log in log_names:
+        logs.append(ctx.actions.declare_file("logs/asap7/tag_array_64x184/base/{}".format(log)))
+
+    reports = []
+    for report in report_names:
+        reports.append(ctx.actions.declare_file("reports/asap7/tag_array_64x184/base/{}".format(report)))
+
+    odb_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.odb".format(stage))
+    sdc_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.sdc".format(stage))
+
+    transitive = [
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    ctx.actions.run(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+        ] + steps,
+        executable = "make",
+        env = {
+            "WORK_HOME": ctx.genfiles_dir.path,
+            "HOME": ctx.genfiles_dir.path,
+            "DESIGN_CONFIG": ctx.file.design_config.path,
+            "FLOW_HOME": ctx.file._makefile.dirname,
+            "OPENROAD_EXE": ctx.executable._openroad.path,
+        },
+        inputs = depset(
+            ctx.files.odb + ctx.files._libs + [ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
+            transitive = transitive,
+        ),
+        outputs = [odb_out, sdc_out] + logs + reports,
+    )
+
+    return [
+        DefaultInfo(
+            runfiles = ctx.runfiles(files = []),
+            files = depset([odb_out, sdc_out]),
+        ),
+        OutputGroupInfo(
+            logs = depset(logs),
+            reports = depset(reports),
+        ),
+    ]
+
+cts = rule(
+    implementation = lambda ctx: _make_impl(
+        stage = "4_cts",
+        log_names = [
+            "4_1_cts.log",
+        ],
+        report_names = [
+            "4_cts_final.rpt",
+        ],
+        steps = [
+            "do-4_1_cts",
+            "do-4_cts",
+        ],
+        ctx = ctx,
+    ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo],
+    executable = False,
+)
+
+route = rule(
+    implementation = lambda ctx: _make_impl(
+        stage = "5_route",
+        log_names = [
+            "5_1_grt.log",
+            "5_2_fillcell.log",
+            "5_3_route.log",
+        ],
+        report_names = [
+            "5_route_drc.rpt",
+            "5_global_route.rpt",
+            "congestion.rpt",
+        ],
+        steps = [
+            "do-5_1_grt",
+            "do-5_2_fillcell",
+            "do-5_3_route",
+            "do-5_route",
+            "do-5_route.sdc",
+        ],
+        ctx = ctx,
+    ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo],
+    executable = False,
+)
+
+final = rule(
+    implementation = lambda ctx: _make_impl(
+        stage = "6_final",
+        log_names = [
+            "6_report.log",
+            "6_report.json",
+        ],
+        report_names = [
+            "6_finish.rpt",
+            "VDD.rpt",
+            "VSS.rpt",
+        ],
+        steps = [
+            "do-6_1_fill",
+            "do-6_1_fill.sdc",
+            "do-6_final.sdc",
+            "do-6_report",
+            # "do-gds",
+        ],
+        ctx = ctx,
+    ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo],
+    executable = False,
+)
+
 """
 This module contains a definiton of build_openroad() macro used for declaring
 targets for running physical design flow with OpenROAD-flow-scripts.
