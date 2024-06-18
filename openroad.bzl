@@ -11,7 +11,7 @@ def _cheat_impl(ctx):
         output = ctx.outputs.source_file,
         substitutions = {
             "{YOSYS_PATH}": ctx.executable._yosys.path,
-            "{OPENROAD_PATH}": "TODO",  #ctx.executable._openroad.path,
+            "{OPENROAD_PATH}": ctx.executable._openroad.path,
             "{MAKEFILE_PATH}": ctx.file._makefile.path,
             "{MAKEFILE_DIR}": ctx.file._makefile.dirname,
         },
@@ -46,6 +46,13 @@ cheat = rule(
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:yosys"),
+        ),
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
         ),
         "_template": attr.label(
             default = ":cheat.sh.tpl",
