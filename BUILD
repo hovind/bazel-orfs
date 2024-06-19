@@ -59,39 +59,43 @@ filegroup(
 
 synth(
     name = "test_synth",
+    constraint_file = ":constraints-sram",
     design_config = "tag_array_64x184.mk",
     verilog_files = ["test/mock/tag_array_64x184.sv"],
 )
 
 floorplan(
     name = "test_floor",
-    constraint_file = ":constraints-sram",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "CORE_ASPECT_RATIO": "2",
+    },
     design_config = "tag_array_64x184.mk",
-    netlist = ":test_synth",
+    src = ":test_synth",
 )
 
 place(
     name = "test_place",
     design_config = "tag_array_64x184.mk",
-    odb = ":test_floor",
+    src = ":test_floor",
 )
 
 cts(
     name = "test_cts",
     design_config = "tag_array_64x184.mk",
-    odb = ":test_place",
+    src = ":test_place",
 )
 
 route(
     name = "test_route",
     design_config = "tag_array_64x184.mk",
-    odb = ":test_cts",
+    src = ":test_cts",
 )
 
 final(
     name = "test_final",
     design_config = "tag_array_64x184.mk",
-    odb = ":test_route",
+    src = ":test_route",
 )
 
 cheat(

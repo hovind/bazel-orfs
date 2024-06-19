@@ -61,18 +61,66 @@ cheat = rule(
     },
 )
 
+def flow_attrs():
+    return {
+        "arguments": attr.string_dict(
+            doc = "Dictionary of additional flow arguments.",
+            default = {},
+        ),
+    }
+
+def openroad_only_attrs():
+    return {
+        "src": attr.label(
+            providers = [DefaultInfo],
+        ),
+        "design_config": attr.label(
+            allow_single_file = True,
+            doc = "Design configuration.",
+            mandatory = True,
+        ),
+        "_libs": attr.label_list(
+            doc = "Cell library.",
+            allow_files = True,
+            default = [Label("@docker_orfs//:lib")],
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
+        ),
+    }
+
+def openroad_attrs():
+    return flow_attrs() | openroad_only_attrs()
+
 def _synth_impl(ctx):
     out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.v")
+    sdc = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.sdc")
 
-    transitive = [
+    ctx.actions.symlink(output = sdc, target_file = ctx.file.constraint_file)
+
+    transitive_inputs = [
         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
         ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ]
 
+    transitive_runfiles = [
+        ctx.attr.constraint_file[DefaultInfo].default_runfiles.files,
+        ctx.attr.constraint_file[DefaultInfo].default_runfiles.symlinks,
+    ]
+
     ctx.actions.run(
-        arguments = ["--trace", "--file", ctx.file._makefile.path, "do-yosys", "do-synth"],
+        arguments = ["--file", ctx.file._makefile.path, "do-yosys", "do-synth"],
         executable = "make",
         env = {
             "WORK_HOME": ctx.genfiles_dir.path,
@@ -83,15 +131,17 @@ def _synth_impl(ctx):
         },
         inputs = depset(
             ctx.files.verilog_files + ctx.files._libs + ctx.files._yosys_share + [ctx.executable._yosys, ctx.file._makefile, ctx.file.design_config],
-            transitive = transitive,
+            transitive = transitive_inputs,
         ),
         outputs = [out],
     )
 
-    return [DefaultInfo(
-        runfiles = ctx.runfiles(files = []),
-        files = depset([out]),
-    )]
+    return [
+        DefaultInfo(
+            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
+            files = depset([out, sdc]),
+        ),
+    ]
 
 synth = rule(
     implementation = _synth_impl,
@@ -104,6 +154,11 @@ synth = rule(
             allow_rules = [
             ],
             providers = [DefaultInfo],
+        ),
+        "constraint_file": attr.label(
+            allow_single_file = True,
+            doc = "Constraint file.",
+            mandatory = True,
         ),
         "design_config": attr.label(
             allow_single_file = True,
@@ -137,139 +192,6 @@ synth = rule(
     executable = False,
 )
 
-def _floorplan_impl(ctx):
-    sdc = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.sdc")
-    log = ctx.actions.declare_file("logs/asap7/tag_array_64x184/base/2_1_floorplan.log")
-    rpt = ctx.actions.declare_file("reports/asap7/tag_array_64x184/base/2_floorplan_final.rpt")
-    copyright = ctx.actions.declare_file("objects/asap7/tag_array_64x184/base/copyright.txt")
-
-    odb_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/2_floorplan.odb")
-    sdc_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/2_floorplan.sdc")
-
-    ctx.actions.symlink(output = sdc, target_file = ctx.file.constraint_file)
-
-    transitive = [
-        ctx.attr.constraint_file[DefaultInfo].default_runfiles.files,
-        ctx.attr.constraint_file[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-    ]
-
-    ctx.actions.run(
-        arguments = [
-            "--file",
-            ctx.file._makefile.path,
-            "do-2_1_floorplan",
-            "do-2_2_floorplan_io",
-            "do-2_3_floorplan_tdms",
-            "do-2_4_floorplan_macro",
-            "do-2_5_floorplan_tapcell",
-            "do-2_6_floorplan_pdn",
-            "do-2_floorplan",
-        ],
-        executable = "make",
-        env = {
-            "WORK_HOME": ctx.genfiles_dir.path,
-            "HOME": ctx.genfiles_dir.path,
-            "DESIGN_CONFIG": ctx.file.design_config.path,
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "OPENROAD_EXE": ctx.executable._openroad.path,
-            "CORE_UTILIZATION": "40",
-            "CORE_ASPECT_RATIO": "2",
-        },
-        inputs = depset(
-            ctx.files._libs + [sdc, ctx.file.netlist, ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
-            transitive = transitive,
-        ),
-        outputs = [odb_out, sdc_out, log, rpt, copyright],
-    )
-
-    return [
-        DefaultInfo(
-            runfiles = ctx.runfiles(files = []),
-            files = depset([odb_out, sdc_out]),
-        ),
-        OutputGroupInfo(
-            logs = depset([log]),
-            reports = depset([rpt]),
-        ),
-    ]
-
-floorplan = rule(
-    implementation = _floorplan_impl,
-    attrs = {
-        "netlist": attr.label(
-            allow_single_file = [
-                ".v",
-                ".sv",
-            ],
-            allow_rules = [
-            ],
-            providers = [DefaultInfo],
-        ),
-        "constraint_file": attr.label(
-            allow_single_file = True,
-            doc = "Constraint file.",
-            mandatory = True,
-        ),
-        "design_config": attr.label(
-            allow_single_file = True,
-            doc = "Design configuration.",
-            mandatory = True,
-        ),
-        "_libs": attr.label_list(
-            doc = "Cell library.",
-            allow_files = True,
-            default = [Label("@docker_orfs//:lib")],
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_openroad": attr.label(
-            doc = "OpenROAD binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
-        ),
-    },
-    provides = [DefaultInfo],
-    executable = False,
-)
-
-def openroad_attrs():
-    return {
-        "odb": attr.label(
-            providers = [DefaultInfo],
-        ),
-        "design_config": attr.label(
-            allow_single_file = True,
-            doc = "Design configuration.",
-            mandatory = True,
-        ),
-        "_libs": attr.label_list(
-            doc = "Cell library.",
-            allow_files = True,
-            default = [Label("@docker_orfs//:lib")],
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_openroad": attr.label(
-            doc = "OpenROAD binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
-        ),
-    }
-
 def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
     objects = []
     for object in object_names:
@@ -286,11 +208,16 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
     odb_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.odb".format(stage))
     sdc_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.sdc".format(stage))
 
-    transitive = [
+    transitive_inputs = [
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    transitive_runfiles = [
+        ctx.attr.src[DefaultInfo].default_runfiles.files,
+        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
     ]
 
     ctx.actions.run(
@@ -299,7 +226,7 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
             ctx.file._makefile.path,
         ] + steps,
         executable = "make",
-        env = {
+        env = ctx.attr.arguments | {
             "WORK_HOME": ctx.genfiles_dir.path,
             "HOME": ctx.genfiles_dir.path,
             "DESIGN_CONFIG": ctx.file.design_config.path,
@@ -307,15 +234,15 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
             "OPENROAD_EXE": ctx.executable._openroad.path,
         },
         inputs = depset(
-            ctx.files.odb + ctx.files._libs + [ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
-            transitive = transitive,
+            ctx.files.src + ctx.files._libs + [ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
+            transitive = transitive_inputs + transitive_runfiles,
         ),
-        outputs = [odb_out, sdc_out] + logs + reports,
+        outputs = [odb_out, sdc_out] + objects + logs + reports,
     )
 
     return [
         DefaultInfo(
-            runfiles = ctx.runfiles(files = []),
+            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
             files = depset([odb_out, sdc_out]),
         ),
         OutputGroupInfo(
@@ -323,6 +250,34 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
             reports = depset(reports),
         ),
     ]
+
+floorplan = rule(
+    implementation = lambda ctx: _make_impl(
+        stage = "2_floorplan",
+        object_names = [
+            "copyright.txt",
+        ],
+        log_names = [
+            "2_1_floorplan.log",
+        ],
+        report_names = [
+            "2_floorplan_final.rpt",
+        ],
+        steps = [
+            "do-2_1_floorplan",
+            "do-2_2_floorplan_io",
+            "do-2_3_floorplan_tdms",
+            "do-2_4_floorplan_macro",
+            "do-2_5_floorplan_tapcell",
+            "do-2_6_floorplan_pdn",
+            "do-2_floorplan",
+        ],
+        ctx = ctx,
+    ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo],
+    executable = False,
+)
 
 place = rule(
     implementation = lambda ctx: _make_impl(
