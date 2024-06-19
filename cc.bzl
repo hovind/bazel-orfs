@@ -1,15 +1,16 @@
 def _cc_patch(ctx, input):
     out = ctx.actions.declare_file(ctx.label.name)
 
-    runfiles = ctx.runfiles(files = [])
+    runfiles = ctx.runfiles(files = ctx.files.data)
     for dep in ctx.attr.deps:
         for link in dep[CcInfo].linking_context.linker_inputs.to_list():
             runfiles = runfiles.merge(ctx.runfiles([lib.dynamic_library for lib in link.libraries]))
 
     for dep in runfiles.files.to_list():
-        link = ctx.actions.declare_file(dep.basename)
-        ctx.actions.symlink(output = link, target_file = dep)
-        runfiles = runfiles.merge(ctx.runfiles([link]))
+        if ctx.label.package != dep.owner.package or ctx.label.workspace_name != dep.owner.workspace_name or dep.is_source:
+            link = ctx.actions.declare_file(dep.basename)
+            ctx.actions.symlink(output = link, target_file = dep)
+            runfiles = runfiles.merge(ctx.runfiles([link]))
 
     ctx.actions.run(
         arguments = ["--set-rpath", "$ORIGIN", "--output", out.path, input.path],
@@ -20,7 +21,7 @@ def _cc_patch(ctx, input):
 
     return [DefaultInfo(
         executable = out,
-        runfiles = runfiles.merge(ctx.runfiles(files = ctx.files.data)),
+        runfiles = runfiles,
         files = depset([out]),
     )]
 
@@ -30,7 +31,7 @@ def _cc_import_binary_impl(ctx):
 def _cc_import_library_impl(ctx):
     [default] = _cc_patch(ctx, ctx.file.shared_library)
     return [DefaultInfo(
-        runfiles = default.default_runfiles.merge(ctx.runfiles(files = default.files.to_list())),
+        runfiles = default.default_runfiles.merge(ctx.runfiles(transitive_files = default.files)),
         files = default.files,
     )]
 
@@ -46,14 +47,8 @@ cc_import_binary = rule(
         ),
         "data": attr.label_list(allow_files = True),
         "deps": attr.label_list(
-            allow_files = [
-                ".ld",
-                ".lds",
-                ".ldscript",
-            ],
             allow_rules = [
                 "cc_library",
-                "objc_library",
                 "cc_proto_library",
                 "cc_import",
             ],
@@ -78,16 +73,11 @@ cc_import_library = rule(
         "shared_library": attr.label(
             doc = "Executable to import.",
             mandatory = True,
-            allow_single_file = [".so"],
+            allow_single_file = True,
             cfg = "exec",
         ),
         "data": attr.label_list(allow_files = True),
         "deps": attr.label_list(
-            allow_files = [
-                ".ld",
-                ".lds",
-                ".ldscript",
-            ],
             allow_rules = [
                 "cc_library",
                 "objc_library",
