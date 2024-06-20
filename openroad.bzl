@@ -205,16 +205,6 @@ def _required_arguments():
         "DESIGN_NAME": "tag_array_64x184",
     }
 
-def _default_info_runfile_dirs(default_info):
-    dirs = {}
-    for f in depset(transitive = [default_info.default_runfiles.files, default_info.default_runfiles.symlinks]).to_list():
-        if f.is_source:
-            dirs[f.dirname] = ()
-    return dirs
-
-def _remove_klayout_suffixes(dir):
-    return dir.removesuffix("/db_plugins").removesuffix("/lay_plugins")
-
 def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
     config = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.mk".format(stage))
     all_arguments = ctx.attr.arguments | _required_arguments()
@@ -254,9 +244,6 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
         ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
     ]
 
-    klayout_dirs = {_remove_klayout_suffixes(dir): () for dir in _default_info_runfile_dirs(ctx.attr._klayout[DefaultInfo])}
-    klayout_path = ":".join(klayout_dirs.keys())
-
     ctx.actions.run(
         arguments = [
             "--file",
@@ -270,7 +257,6 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "KLAYOUT_CMD": ctx.executable._klayout.path,
-            "KLAYOUT_PATH": klayout_path,
         },
         inputs = depset(
             ctx.files.src + ctx.files._libs + [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],

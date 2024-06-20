@@ -1,4 +1,5 @@
 load("@bazel-orfs//:cc.bzl", "cc_import_binary", "cc_import_library")
+load("@bazel-orfs//:copytree.bzl", "copytree")
 
 filegroup(
     name = "yosys",
@@ -9,15 +10,6 @@ filegroup(
 filegroup(
     name = "share",
     srcs = glob([ "share/yosys/**"]),
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
-    name = "klayout_plugins",
-    srcs = glob([
-        "lib/klayout/db_plugins/*",
-        "lib/klayout/lay_plugins/*",
-    ]),
     visibility = ["//visibility:public"],
 )
 
@@ -372,7 +364,8 @@ cc_import(
 cc_import_binary(
     name = "klayout",
     data = [
-        ":klayout_plugins",
+        ":db_plugins",
+        ":lay_plugins",
     ],
     deps = [
         ":libklayout_tl",
@@ -401,5 +394,22 @@ cc_import_binary(
         ":libklayout_QtXmlPatterns",
     ],
     executable = ":lib/klayout/klayout",
+    visibility = ["//visibility:public"],
+)
+
+copytree(
+    name = "db_plugins",
+    strip_prefix  = "lib/klayout/",
+    srcs = glob([
+        "lib/klayout/db_plugins/**/*",
+    ]),
+)
+
+copytree(
+    name = "lay_plugins",
+    strip_prefix  = "lib/klayout",
+    srcs = glob([
+        "lib/klayout/lay_plugins/**/*",
+    ]),
     visibility = ["//visibility:public"],
 )
