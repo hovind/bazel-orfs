@@ -55,5 +55,6 @@ docker_pkg(
         "OpenROAD-flow-scripts/tools/install/yosys/share/": "share/",
         "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
         "usr/lib/x86_64-linux-gnu/": "lib/",
+        "usr/lib/klayout/": "lib/klayout",
     },
 )
