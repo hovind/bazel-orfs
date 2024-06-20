@@ -13,6 +13,23 @@ filegroup(
 )
 
 filegroup(
+    name = "klayout_plugins",
+    srcs = glob([
+        "lib/klayout/db_plugins/*",
+        "lib/klayout/lay_plugins/*",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "klayout_pymod",
+    srcs = glob([
+        "lib/klayout/pymod/**/*",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "mk",
     srcs = glob(["flow/**/*.mk", "flow/**/*.py", "flow/**/*.tcl", "flow/**/*.pl", "flow/**/*.script"]),
 )
@@ -26,7 +43,7 @@ filegroup(
 
 filegroup(
     name = "lib",
-    srcs = glob(["flow/platforms/**/*.lib.gz", "flow/platforms/**/*.lef", "flow/platforms/**/*.lib", "flow/platforms/**/*.lyt", "flow/platforms/**/*.rules", "flow/platforms/**/*.v"]),
+    srcs = glob(["flow/platforms/**/*.gds", "flow/platforms/**/*.lib.gz", "flow/platforms/**/*.lef", "flow/platforms/**/*.lib", "flow/platforms/**/*.lyt", "flow/platforms/**/*.rules", "flow/platforms/**/*.v"]),
     visibility = ["//visibility:public"],
 )
 
@@ -354,6 +371,9 @@ cc_import(
 )
 cc_import_binary(
     name = "klayout",
+    data = [
+        ":klayout_plugins",
+    ],
     deps = [
         ":libklayout_tl",
         ":libklayout_gsi",

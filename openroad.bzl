@@ -96,6 +96,13 @@ def openroad_only_attrs():
             cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
         ),
+        "_klayout": attr.label(
+            doc = "Klayout binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:klayout"),
+        ),
     }
 
 def openroad_attrs():
@@ -198,6 +205,16 @@ def _required_arguments():
         "DESIGN_NAME": "tag_array_64x184",
     }
 
+def _default_info_runfile_dirs(default_info):
+    dirs = {}
+    for f in depset(transitive = [default_info.default_runfiles.files, default_info.default_runfiles.symlinks]).to_list():
+        if f.is_source:
+            dirs[f.dirname] = ()
+    return dirs
+
+def _remove_klayout_suffixes(dir):
+    return dir.removesuffix("/db_plugins").removesuffix("/lay_plugins")
+
 def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
     config = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.mk".format(stage))
     all_arguments = ctx.attr.arguments | _required_arguments()
@@ -218,12 +235,16 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
     for report in report_names:
         reports.append(ctx.actions.declare_file("reports/asap7/tag_array_64x184/base/{}".format(report)))
 
-    odb_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.odb".format(stage))
-    sdc_out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.sdc".format(stage))
+    results = [
+        ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.odb".format(stage)),
+        ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.sdc".format(stage)),
+    ]
 
     transitive_inputs = [
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._klayout[DefaultInfo].default_runfiles.files,
+        ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ]
@@ -232,6 +253,9 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
         ctx.attr.src[DefaultInfo].default_runfiles.files,
         ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
     ]
+
+    klayout_dirs = {_remove_klayout_suffixes(dir): () for dir in _default_info_runfile_dirs(ctx.attr._klayout[DefaultInfo])}
+    klayout_path = ":".join(klayout_dirs.keys())
 
     ctx.actions.run(
         arguments = [
@@ -245,18 +269,20 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
+            "KLAYOUT_CMD": ctx.executable._klayout.path,
+            "KLAYOUT_PATH": klayout_path,
         },
         inputs = depset(
-            ctx.files.src + ctx.files._libs + [config, ctx.executable._openroad, ctx.file._makefile],
+            ctx.files.src + ctx.files._libs + [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
             transitive = transitive_inputs + transitive_runfiles,
         ),
-        outputs = [odb_out, sdc_out] + objects + logs + reports,
+        outputs = results + objects + logs + reports,
     )
 
     return [
         DefaultInfo(
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
-            files = depset([odb_out, sdc_out]),
+            files = depset(results),
         ),
         OutputGroupInfo(
             logs = depset(logs),
@@ -370,7 +396,9 @@ route = rule(
 final = rule(
     implementation = lambda ctx: _make_impl(
         stage = "6_final",
-        object_names = [],
+        object_names = [
+            "klayout.lyt",
+        ],
         log_names = [
             "6_report.log",
             "6_report.json",
@@ -385,7 +413,7 @@ final = rule(
             "do-6_1_fill.sdc",
             "do-6_final.sdc",
             "do-6_report",
-            # "do-gds",
+            "do-gds",
         ],
         ctx = ctx,
     ),

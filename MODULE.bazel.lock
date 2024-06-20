@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "a9b37eab1174e0c3cb9a5bbb5b1711210346fd8281ef4917f19d836f801c403f",
+  "moduleFileHash": "89ad51f5c71098af57e316034ccfe841af56766dc6a03a5796f9b1c65159ec93",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -106,7 +106,7 @@
                   "OpenROAD-flow-scripts/tools/install/yosys/share/": "share/",
                   "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
                   "usr/lib/x86_64-linux-gnu/": "lib/",
-                  "usr/lib/klayout/": "lib/klayout"
+                  "usr/lib/klayout/": "lib/klayout/"
                 },
                 "name": "docker_orfs"
               },
@@ -945,7 +945,7 @@
                 "OpenROAD-flow-scripts/tools/install/yosys/share/": "share/",
                 "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
                 "usr/lib/x86_64-linux-gnu/": "lib/",
-                "usr/lib/klayout/": "lib/klayout"
+                "usr/lib/klayout/": "lib/klayout/"
               },
               "name": "_main~_repo_rules~docker_orfs"
             }
