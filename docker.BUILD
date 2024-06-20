@@ -26,7 +26,7 @@ filegroup(
 
 filegroup(
     name = "lib",
-    srcs = glob(["flow/platforms/**/*.lib.gz", "flow/platforms/**/*.lef", "flow/platforms/**/*.lib", "flow/platforms/**/*.rules", "flow/platforms/**/*.v"]),
+    srcs = glob(["flow/platforms/**/*.lib.gz", "flow/platforms/**/*.lef", "flow/platforms/**/*.lib", "flow/platforms/**/*.lyt", "flow/platforms/**/*.rules", "flow/platforms/**/*.v"]),
     visibility = ["//visibility:public"],
 )
 
