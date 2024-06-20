@@ -1,7 +1,7 @@
 def _cc_patch(ctx, input):
     out = ctx.actions.declare_file(ctx.label.name)
 
-    runfiles = ctx.runfiles(files = ctx.files.data)
+    runfiles = ctx.runfiles(files = [])
     for dep in ctx.attr.deps:
         for link in dep[CcInfo].linking_context.linker_inputs.to_list():
             runfiles = runfiles.merge(ctx.runfiles([lib.dynamic_library for lib in link.libraries]))
@@ -21,7 +21,7 @@ def _cc_patch(ctx, input):
 
     return [DefaultInfo(
         executable = out,
-        runfiles = runfiles,
+        runfiles = runfiles.merge(ctx.runfiles(files = ctx.files.data)),
         files = depset([out]),
     )]
 
