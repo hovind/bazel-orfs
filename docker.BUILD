@@ -7,6 +7,12 @@ filegroup(
 )
 
 filegroup(
+    name = "share",
+    srcs = glob([ "share/yosys/**"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "mk",
     srcs = glob(["flow/**/*.mk", "flow/**/*.py", "flow/**/*.tcl", "flow/**/*.pl", "flow/**/*.script"]),
 )
@@ -21,12 +27,6 @@ filegroup(
 filegroup(
     name = "lib",
     srcs = glob(["flow/platforms/**/*.lib.gz", "flow/platforms/**/*.lef", "flow/platforms/**/*.lib", "flow/platforms/**/*.rules", "flow/platforms/**/*.v"]),
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
-    name = "share",
-    srcs = glob([ "share/yosys/**"]),
     visibility = ["//visibility:public"],
 )
 
@@ -56,9 +56,3 @@ cc_import_binary(
     visibility = ["//visibility:public"],
 )
 
-# cc_import_binary(
-#     name = "yosys",
-#     data = [":share"],
-#     executable = ":bin/yosys",
-#     visibility = ["//visibility:public"],
-# )
