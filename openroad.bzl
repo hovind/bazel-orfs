@@ -192,7 +192,20 @@ synth = rule(
     executable = False,
 )
 
+def _required_arguments():
+    return {
+        "PLATFORM": "asap7",
+        "DESIGN_NAME": "tag_array_64x184",
+    }
+
 def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
+    config = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.mk".format(stage))
+    all_arguments = ctx.attr.arguments | _required_arguments()
+    ctx.actions.write(
+        output = config,
+        content = "".join(["export {}={}\n".format(*pair) for pair in all_arguments.items()]),
+    )
+
     objects = []
     for object in object_names:
         objects.append(ctx.actions.declare_file("objects/asap7/tag_array_64x184/base/{}".format(object)))
@@ -226,15 +239,15 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
             ctx.file._makefile.path,
         ] + steps,
         executable = "make",
-        env = ctx.attr.arguments | {
+        env = {
             "WORK_HOME": ctx.genfiles_dir.path,
             "HOME": ctx.genfiles_dir.path,
-            "DESIGN_CONFIG": ctx.file.design_config.path,
+            "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
         },
         inputs = depset(
-            ctx.files.src + ctx.files._libs + [ctx.executable._openroad, ctx.file._makefile, ctx.file.design_config],
+            ctx.files.src + ctx.files._libs + [config, ctx.executable._openroad, ctx.file._makefile],
             transitive = transitive_inputs + transitive_runfiles,
         ),
         outputs = [odb_out, sdc_out] + objects + logs + reports,
