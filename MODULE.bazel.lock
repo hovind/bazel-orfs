@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "89ad51f5c71098af57e316034ccfe841af56766dc6a03a5796f9b1c65159ec93",
+  "moduleFileHash": "64a275352080042a1dc831a0869ba303b69217f4284c37a719a32f5fa0b4dd8c",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -103,7 +103,7 @@
                   "OpenROAD-flow-scripts/flow": "flow/",
                   "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
                   "OpenROAD-flow-scripts/tools/install/yosys/bin/": "bin/",
-                  "OpenROAD-flow-scripts/tools/install/yosys/share/": "share/",
+                  "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/": "share/",
                   "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
                   "usr/lib/x86_64-linux-gnu/": "lib/",
                   "usr/lib/klayout/": "lib/klayout/"
@@ -942,7 +942,7 @@
                 "OpenROAD-flow-scripts/flow": "flow/",
                 "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
                 "OpenROAD-flow-scripts/tools/install/yosys/bin/": "bin/",
-                "OpenROAD-flow-scripts/tools/install/yosys/share/": "share/",
+                "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/": "share/",
                 "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
                 "usr/lib/x86_64-linux-gnu/": "lib/",
                 "usr/lib/klayout/": "lib/klayout/"

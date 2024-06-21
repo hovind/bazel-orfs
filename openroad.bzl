@@ -35,11 +35,6 @@ cheat = rule(
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
         ),
-        "_yosys_share": attr.label(
-            doc = "Yosys share.",
-            allow_files = True,
-            default = Label("@docker_orfs//:share"),
-        ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
             executable = True,
@@ -115,6 +110,8 @@ def _synth_impl(ctx):
     ctx.actions.symlink(output = sdc, target_file = ctx.file.constraint_file)
 
     transitive_inputs = [
+        ctx.attr._abc[DefaultInfo].default_runfiles.files,
+        ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
         ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
@@ -133,11 +130,12 @@ def _synth_impl(ctx):
             "WORK_HOME": ctx.genfiles_dir.path,
             "DESIGN_CONFIG": ctx.file.design_config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
+            "ABC": ctx.executable._abc.path,
             "YOSYS_CMD": ctx.executable._yosys.path,
             "VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files]),
         },
         inputs = depset(
-            ctx.files.verilog_files + ctx.files._libs + ctx.files._yosys_share + [ctx.executable._yosys, ctx.file._makefile, ctx.file.design_config],
+            ctx.files.verilog_files + ctx.files._libs + [ctx.executable._abc, ctx.executable._yosys, ctx.file._makefile, ctx.file.design_config],
             transitive = transitive_inputs,
         ),
         outputs = [out],
@@ -182,10 +180,12 @@ synth = rule(
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
         ),
-        "_yosys_share": attr.label(
-            doc = "Yosys share.",
+        "_abc": attr.label(
+            doc = "Abc binary.",
+            executable = True,
             allow_files = True,
-            default = Label("@docker_orfs//:share"),
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys-abc"),
         ),
         "_yosys": attr.label(
             doc = "Yosys binary.",

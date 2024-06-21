@@ -2,18 +2,6 @@ load("@bazel-orfs//:cc.bzl", "cc_import_binary", "cc_import_library")
 load("@bazel-orfs//:copytree.bzl", "copytree")
 
 filegroup(
-    name = "yosys",
-    srcs = ["bin/yosys"],
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
-    name = "share",
-    srcs = glob([ "share/yosys/**"]),
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
     name = "klayout_pymod",
     srcs = glob([
         "lib/klayout/pymod/**/*",
@@ -62,6 +50,21 @@ cc_import_binary(
 cc_import_binary(
     name = "sta",
     executable = ":bin/sta",
+    visibility = ["//visibility:public"],
+)
+
+cc_import_binary(
+    name = "yosys-abc",
+    executable = ":bin/yosys-abc",
+    visibility = ["//visibility:public"],
+)
+
+cc_import_binary(
+    name = "yosys",
+    data = [
+        ":yosys_share",
+    ],
+    executable = ":bin/yosys",
     visibility = ["//visibility:public"],
 )
 
@@ -411,5 +414,11 @@ copytree(
     srcs = glob([
         "lib/klayout/lay_plugins/**/*",
     ]),
+    visibility = ["//visibility:public"],
+)
+
+copytree(
+    name = "yosys_share",
+    srcs = glob(["share/**"]),
     visibility = ["//visibility:public"],
 )
