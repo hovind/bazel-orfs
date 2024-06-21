@@ -1,3 +1,5 @@
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
+
 def _impl(repository_ctx):
     docker_path = repository_ctx.path(repository_ctx.attr._docker).realpath
     image_archive = "data.tar"
@@ -26,6 +28,7 @@ def _impl(repository_ctx):
         repository_ctx.extract(archive = image_archive)
 
     repository_ctx.symlink(repository_ctx.attr.build_file, "BUILD")
+    patch(repository_ctx)
 
 docker_pkg = repository_rule(
     implementation = _impl,
@@ -34,6 +37,11 @@ docker_pkg = repository_rule(
         "docker_file": attr.label(mandatory = True),
         "sha256": attr.string(mandatory = True),
         "strip_prefixes": attr.string_dict(),
+        "patches": attr.label_list(default = []),
+        "patch_tool": attr.string(default = ""),
+        "patch_args": attr.string_list(default = ["-p0"]),
+        "patch_cmds": attr.string_list(default = []),
+        "patch_cmds_win": attr.string_list(default = []),
         "timeout": attr.int(default = 600),
         "_docker": attr.label(
             doc = "Docker command line interface.",

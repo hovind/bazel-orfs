@@ -108,6 +108,9 @@
                   "usr/lib/x86_64-linux-gnu/": "lib/",
                   "usr/lib/klayout/": "lib/klayout/"
                 },
+                "patches": [
+                  ":Makefile.patch"
+                ],
                 "name": "docker_orfs"
               },
               "devDependency": false,
