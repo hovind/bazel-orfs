@@ -107,8 +107,6 @@ def _synth_impl(ctx):
     out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.v")
     sdc = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.sdc")
 
-    ctx.actions.symlink(output = sdc, target_file = ctx.file.constraint_file)
-
     transitive_inputs = [
         ctx.attr._abc[DefaultInfo].default_runfiles.files,
         ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
@@ -124,7 +122,7 @@ def _synth_impl(ctx):
     ]
 
     ctx.actions.run(
-        arguments = ["--file", ctx.file._makefile.path, "do-yosys", "do-synth"],
+        arguments = ["--file", ctx.file._makefile.path, "synth"],
         executable = "make",
         env = {
             "WORK_HOME": ctx.genfiles_dir.path,
@@ -133,12 +131,21 @@ def _synth_impl(ctx):
             "ABC": ctx.executable._abc.path,
             "YOSYS_CMD": ctx.executable._yosys.path,
             "VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files]),
+            "SDC_FILE": ctx.file.constraint_file.path,
         },
         inputs = depset(
-            ctx.files.verilog_files + ctx.files._libs + [ctx.executable._abc, ctx.executable._yosys, ctx.file._makefile, ctx.file.design_config],
+            ctx.files.verilog_files +
+            ctx.files._libs +
+            [
+                ctx.executable._abc,
+                ctx.executable._yosys,
+                ctx.file._makefile,
+                ctx.file.constraint_file,
+                ctx.file.design_config,
+            ],
             transitive = transitive_inputs,
         ),
-        outputs = [out],
+        outputs = [out, sdc],
     )
 
     return [
@@ -288,15 +295,7 @@ floorplan = rule(
         report_names = [
             "2_floorplan_final.rpt",
         ],
-        steps = [
-            "do-2_1_floorplan",
-            "do-2_2_floorplan_io",
-            "do-2_3_floorplan_tdms",
-            "do-2_4_floorplan_macro",
-            "do-2_5_floorplan_tapcell",
-            "do-2_6_floorplan_pdn",
-            "do-2_floorplan",
-        ],
+        steps = ["do-floorplan"],
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
@@ -314,15 +313,7 @@ place = rule(
         report_names = [
             "5_global_place.rpt",
         ],
-        steps = [
-            "do-3_1_place_gp_skip_io",
-            "do-3_2_place_iop",
-            "do-3_3_place_gp",
-            "do-3_4_place_resized",
-            "do-3_5_place_dp",
-            "do-3_place",
-            "do-3_place.sdc",
-        ],
+        steps = ["do-place"],
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
@@ -340,10 +331,7 @@ cts = rule(
         report_names = [
             "4_cts_final.rpt",
         ],
-        steps = [
-            "do-4_1_cts",
-            "do-4_cts",
-        ],
+        steps = ["do-cts"],
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
@@ -365,13 +353,7 @@ route = rule(
             "5_global_route.rpt",
             "congestion.rpt",
         ],
-        steps = [
-            "do-5_1_grt",
-            "do-5_2_fillcell",
-            "do-5_3_route",
-            "do-5_route",
-            "do-5_route.sdc",
-        ],
+        steps = ["do-route"],
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
@@ -394,13 +376,7 @@ final = rule(
             "VDD.rpt",
             "VSS.rpt",
         ],
-        steps = [
-            "do-6_1_fill",
-            "do-6_1_fill.sdc",
-            "do-6_final.sdc",
-            "do-6_report",
-            "do-gds",
-        ],
+        steps = ["do-final"],
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
