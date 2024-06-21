@@ -47,7 +47,7 @@ docker_pkg(
     timeout = 3600,
     build_file = ":docker.BUILD",
     docker_file = ":Dockerfile",
-    sha256 = "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
+    sha256 = "a8f295032790d494c57ce709b4015d8066e9cec59648a818be11aece501f9d54",
     strip_prefixes = {
         "OpenROAD-flow-scripts/flow": "flow/",
         "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
@@ -57,4 +57,7 @@ docker_pkg(
         "usr/lib/x86_64-linux-gnu/": "lib/",
         "usr/lib/klayout/": "lib/klayout/",
     },
+    patches = [
+        ":Makefile.patch",
+    ],
 )
