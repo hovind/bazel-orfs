@@ -59,8 +59,8 @@ filegroup(
 
 synth(
     name = "test_synth",
+    module_top = "tag_array_64x184",
     constraint_file = ":constraints-sram",
-    design_config = "tag_array_64x184.mk",
     verilog_files = ["test/mock/tag_array_64x184.sv"],
 )
 
@@ -70,31 +70,26 @@ floorplan(
         "CORE_UTILIZATION": "40",
         "CORE_ASPECT_RATIO": "2",
     },
-    design_config = "tag_array_64x184.mk",
     src = ":test_synth",
 )
 
 place(
     name = "test_place",
-    design_config = "tag_array_64x184.mk",
     src = ":test_floor",
 )
 
 cts(
     name = "test_cts",
-    design_config = "tag_array_64x184.mk",
     src = ":test_place",
 )
 
 route(
     name = "test_route",
-    design_config = "tag_array_64x184.mk",
     src = ":test_cts",
 )
 
 final(
     name = "test_final",
-    design_config = "tag_array_64x184.mk",
     src = ":test_route",
 )
 

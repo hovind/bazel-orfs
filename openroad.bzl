@@ -1,3 +1,5 @@
+TopInfo = provider()
+
 def _cheat_impl(ctx):
     transitive = depset([], transitive = [
         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
@@ -17,8 +19,8 @@ def _cheat_impl(ctx):
         },
     )
     return [DefaultInfo(
-        runfiles = ctx.runfiles(files = [], transitive_files = transitive),
         files = depset([ctx.outputs.source_file]),
+        runfiles = ctx.runfiles(files = [], transitive_files = transitive),
     )]
 
 cheat = rule(
@@ -69,11 +71,6 @@ def openroad_only_attrs():
         "src": attr.label(
             providers = [DefaultInfo],
         ),
-        "design_config": attr.label(
-            allow_single_file = True,
-            doc = "Design configuration.",
-            mandatory = True,
-        ),
         "_libs": attr.label_list(
             doc = "Cell library.",
             allow_files = True,
@@ -103,7 +100,27 @@ def openroad_only_attrs():
 def openroad_attrs():
     return flow_attrs() | openroad_only_attrs()
 
+def _module_top(ctx):
+    return ctx.attr.module_top if hasattr(ctx.attr, "module_top") else ctx.attr.src[TopInfo].module_top
+
+def _required_arguments(ctx):
+    return {
+        "PLATFORM": "asap7",
+        "DESIGN_NAME": _module_top(ctx),
+    }
+
+def _config(ctx, stage):
+    config = ctx.actions.declare_file("results/asap7/{}/base/{}.mk".format(_module_top(ctx), stage))
+    all_arguments = ctx.attr.arguments | _required_arguments(ctx)
+    ctx.actions.write(
+        output = config,
+        content = "".join(["export {}={}\n".format(*pair) for pair in all_arguments.items()]),
+    )
+    return config
+
 def _synth_impl(ctx):
+    config = _config(ctx, "1_synth")
+
     out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.v")
     sdc = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.sdc")
 
@@ -126,8 +143,8 @@ def _synth_impl(ctx):
         executable = "make",
         env = {
             "WORK_HOME": ctx.genfiles_dir.path,
-            "DESIGN_CONFIG": ctx.file.design_config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
+            "DESIGN_CONFIG": config.path,
             "ABC": ctx.executable._abc.path,
             "YOSYS_CMD": ctx.executable._yosys.path,
             "VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files]),
@@ -137,11 +154,11 @@ def _synth_impl(ctx):
             ctx.files.verilog_files +
             ctx.files._libs +
             [
+                config,
                 ctx.executable._abc,
                 ctx.executable._yosys,
                 ctx.file._makefile,
                 ctx.file.constraint_file,
-                ctx.file.design_config,
             ],
             transitive = transitive_inputs,
         ),
@@ -150,14 +167,17 @@ def _synth_impl(ctx):
 
     return [
         DefaultInfo(
-            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
             files = depset([out, sdc]),
+            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
+        ),
+        TopInfo(
+            module_top = ctx.attr.module_top,
         ),
     ]
 
 synth = rule(
     implementation = _synth_impl,
-    attrs = {
+    attrs = flow_attrs() | {
         "verilog_files": attr.label_list(
             allow_files = [
                 ".v",
@@ -172,11 +192,7 @@ synth = rule(
             doc = "Constraint file.",
             mandatory = True,
         ),
-        "design_config": attr.label(
-            allow_single_file = True,
-            doc = "Design configuration.",
-            mandatory = True,
-        ),
+        "module_top": attr.string(mandatory = True),
         "_libs": attr.label_list(
             doc = "Cell library.",
             allow_files = True,
@@ -202,24 +218,12 @@ synth = rule(
             default = Label("@docker_orfs//:yosys"),
         ),
     },
-    provides = [DefaultInfo],
+    provides = [DefaultInfo, TopInfo],
     executable = False,
 )
 
-def _required_arguments():
-    return {
-        "PLATFORM": "asap7",
-        "DESIGN_NAME": "tag_array_64x184",
-    }
-
 def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
-    config = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.mk".format(stage))
-    all_arguments = ctx.attr.arguments | _required_arguments()
-    ctx.actions.write(
-        output = config,
-        content = "".join(["export {}={}\n".format(*pair) for pair in all_arguments.items()]),
-    )
-
+    config = _config(ctx, stage)
     objects = []
     for object in object_names:
         objects.append(ctx.actions.declare_file("objects/asap7/tag_array_64x184/base/{}".format(object)))
@@ -274,12 +278,15 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
 
     return [
         DefaultInfo(
-            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
             files = depset(results),
+            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
         OutputGroupInfo(
             logs = depset(logs),
             reports = depset(reports),
+        ),
+        TopInfo(
+            module_top = _module_top(ctx),
         ),
     ]
 
@@ -299,7 +306,7 @@ floorplan = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo],
+    provides = [DefaultInfo, TopInfo],
     executable = False,
 )
 
@@ -317,7 +324,7 @@ place = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo],
+    provides = [DefaultInfo, TopInfo],
     executable = False,
 )
 
@@ -335,7 +342,7 @@ cts = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo],
+    provides = [DefaultInfo, TopInfo],
     executable = False,
 )
 
@@ -357,7 +364,7 @@ route = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo],
+    provides = [DefaultInfo, TopInfo],
     executable = False,
 )
 
@@ -380,7 +387,7 @@ final = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo],
+    provides = [DefaultInfo, TopInfo],
     executable = False,
 )
 
