@@ -3,7 +3,7 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 def _impl(repository_ctx):
     docker_path = repository_ctx.path(repository_ctx.attr._docker).realpath
     image_archive = "data.tar"
-    exec_result = repository_ctx.execute(
+    build_result = repository_ctx.execute(
         [
             docker_path,
             "build",
@@ -14,11 +14,20 @@ def _impl(repository_ctx):
             ".",
         ],
     )
-    if exec_result.return_code != 0:
+    if build_result.return_code != 0:
         fail(
             "Failed to build {docker}:".format(docker = repository_ctx.attr.docker_file),
-            exec_result.stderr,
-            sep = "\n",
+            build_result.stderr,
+        )
+
+    check_result = repository_ctx.execute([
+        "sha256sum",
+        image_archive,
+    ])
+    if check_result.return_code != 0 or not check_result.stdout.startswith(repository_ctx.attr.sha256):
+        fail(
+            "Checksum error in {repo}, expected {sha256}, got:".format(repo = repository_ctx.attr.name, sha256 = repository_ctx.attr.sha256),
+            check_result.stdout,
         )
 
     for src, dest in repository_ctx.attr.strip_prefixes.items():
