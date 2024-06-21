@@ -27,21 +27,31 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-cc_import(
-    name = "ortools",
+cc_import_library(
+    name = "libortools.so.9",
     shared_library = ":lib/libortools.so.9",
 )
 
-cc_import(
-    name = "tclreadline",
+cc_import_library(
+    name = "libtclreadline-2.3.8.so",
     shared_library = ":lib/libtclreadline-2.3.8.so",
+)
+
+cc_import(
+    name = "libortools",
+    shared_library = ":libortools.so.9",
+)
+
+cc_import(
+    name = "libtclreadline",
+    shared_library = ":libtclreadline-2.3.8.so",
 )
 
 cc_import_binary(
     name = "openroad",
     deps = [
-        ":ortools",
-        ":tclreadline",
+        ":libortools",
+        ":libtclreadline",
     ],
     executable = ":bin/openroad",
     visibility = ["//visibility:public"],
