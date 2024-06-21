@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "13b96d5d03808b826c5e36f4a839b43a6c48c6f05d94df2821730bdf16cb5430",
+  "moduleFileHash": "ea4df01c8093de315608f8dea8f796f2efae347dd58f8e77dc1043a997f7f497",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -98,7 +98,7 @@
                 "timeout": 3600,
                 "build_file": ":docker.BUILD",
                 "docker_file": ":Dockerfile",
-                "sha256": "a8f295032790d494c57ce709b4015d8066e9cec59648a818be11aece501f9d54",
+                "sha256": "70ea7eac09277b429e4cbac1668f29a795656b45993684425d8de0fd1977b65b",
                 "strip_prefixes": {
                   "OpenROAD-flow-scripts/flow": "flow/",
                   "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
@@ -940,7 +940,7 @@
               "timeout": 3600,
               "build_file": "@@//:docker.BUILD",
               "docker_file": "@@//:Dockerfile",
-              "sha256": "a8f295032790d494c57ce709b4015d8066e9cec59648a818be11aece501f9d54",
+              "sha256": "70ea7eac09277b429e4cbac1668f29a795656b45993684425d8de0fd1977b65b",
               "strip_prefixes": {
                 "OpenROAD-flow-scripts/flow": "flow/",
                 "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",

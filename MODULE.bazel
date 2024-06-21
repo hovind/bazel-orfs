@@ -47,7 +47,7 @@ docker_pkg(
     timeout = 3600,
     build_file = ":docker.BUILD",
     docker_file = ":Dockerfile",
-    sha256 = "a8f295032790d494c57ce709b4015d8066e9cec59648a818be11aece501f9d54",
+    sha256 = "70ea7eac09277b429e4cbac1668f29a795656b45993684425d8de0fd1977b65b",
     strip_prefixes = {
         "OpenROAD-flow-scripts/flow": "flow/",
         "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
