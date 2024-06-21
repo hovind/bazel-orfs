@@ -66,6 +66,49 @@ def flow_attrs():
         ),
     }
 
+def yosys_only_attrs():
+    return {
+        "verilog_files": attr.label_list(
+            allow_files = [
+                ".v",
+                ".sv",
+            ],
+            allow_rules = [
+            ],
+            providers = [DefaultInfo],
+        ),
+        "constraint_file": attr.label(
+            allow_single_file = True,
+            doc = "Constraint file.",
+            mandatory = True,
+        ),
+        "module_top": attr.string(mandatory = True),
+        "_libs": attr.label_list(
+            doc = "Cell library.",
+            allow_files = True,
+            default = [Label("@docker_orfs//:lib")],
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_abc": attr.label(
+            doc = "Abc binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys-abc"),
+        ),
+        "_yosys": attr.label(
+            doc = "Yosys binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys"),
+        ),
+    }
+
 def openroad_only_attrs():
     return {
         "src": attr.label(
@@ -96,6 +139,9 @@ def openroad_only_attrs():
             default = Label("@docker_orfs//:klayout"),
         ),
     }
+
+def yosys_attrs():
+    return flow_attrs() | yosys_only_attrs()
 
 def openroad_attrs():
     return flow_attrs() | openroad_only_attrs()
@@ -177,47 +223,7 @@ def _synth_impl(ctx):
 
 synth = rule(
     implementation = _synth_impl,
-    attrs = flow_attrs() | {
-        "verilog_files": attr.label_list(
-            allow_files = [
-                ".v",
-                ".sv",
-            ],
-            allow_rules = [
-            ],
-            providers = [DefaultInfo],
-        ),
-        "constraint_file": attr.label(
-            allow_single_file = True,
-            doc = "Constraint file.",
-            mandatory = True,
-        ),
-        "module_top": attr.string(mandatory = True),
-        "_libs": attr.label_list(
-            doc = "Cell library.",
-            allow_files = True,
-            default = [Label("@docker_orfs//:lib")],
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_abc": attr.label(
-            doc = "Abc binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:yosys-abc"),
-        ),
-        "_yosys": attr.label(
-            doc = "Yosys binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:yosys"),
-        ),
-    },
+    attrs = yosys_attrs(),
     provides = [DefaultInfo, TopInfo],
     executable = False,
 )
