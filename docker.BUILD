@@ -1,5 +1,6 @@
 load("@bazel-orfs//:cc.bzl", "cc_import_binary", "cc_import_library")
 load("@bazel-orfs//:copytree.bzl", "copytree")
+load("@bazel-orfs//:openroad.bzl", "pdk")
 
 filegroup(
     name = "klayout_pymod",
@@ -21,9 +22,18 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "lib",
-    srcs = glob(["flow/platforms/**/*.gds", "flow/platforms/**/*.lib.gz", "flow/platforms/**/*.lef", "flow/platforms/**/*.lib", "flow/platforms/**/*.lyt", "flow/platforms/**/*.rules", "flow/platforms/**/*.v"]),
+pdk(
+    name = "asap7",
+    srcs = glob([
+        "flow/platforms/asap7/**/*.gds",
+        "flow/platforms/asap7/**/*.lib.gz",
+        "flow/platforms/asap7/**/*.lef",
+        "flow/platforms/asap7/**/*.lib",
+        "flow/platforms/asap7/**/*.lyt",
+        "flow/platforms/asap7/**/*.rules",
+        "flow/platforms/asap7/**/*.v",
+        "flow/platforms/common/**/*.v",
+    ]),
     visibility = ["//visibility:public"],
 )
 

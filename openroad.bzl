@@ -1,4 +1,21 @@
 TopInfo = provider()
+PdkInfo = provider()
+
+def _pdk_impl(ctx):
+    return [PdkInfo(
+        name = ctx.attr.name,
+        files = depset(ctx.files.srcs),
+    )]
+
+pdk = rule(
+    implementation = _pdk_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            providers = [DefaultInfo],
+        ),
+    },
+)
 
 def _cheat_impl(ctx):
     transitive = depset([], transitive = [
@@ -27,10 +44,10 @@ cheat = rule(
     implementation = _cheat_impl,
     attrs = {
         "source_file": attr.output(mandatory = True),
-        "_libs": attr.label_list(
-            doc = "Cell library.",
-            allow_files = True,
-            default = [Label("@docker_orfs//:lib")],
+        "pdk": attr.label(
+            doc = "Process design kit.",
+            default = Label("@docker_orfs//:asap7"),
+            providers = [PdkInfo],
         ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -83,10 +100,10 @@ def yosys_only_attrs():
             mandatory = True,
         ),
         "module_top": attr.string(mandatory = True),
-        "_libs": attr.label_list(
-            doc = "Cell library.",
-            allow_files = True,
-            default = [Label("@docker_orfs//:lib")],
+        "pdk": attr.label(
+            doc = "Process design kit.",
+            default = Label("@docker_orfs//:asap7"),
+            providers = [PdkInfo],
         ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -113,11 +130,6 @@ def openroad_only_attrs():
     return {
         "src": attr.label(
             providers = [DefaultInfo],
-        ),
-        "_libs": attr.label_list(
-            doc = "Cell library.",
-            allow_files = True,
-            default = [Label("@docker_orfs//:lib")],
         ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -149,9 +161,12 @@ def openroad_attrs():
 def _module_top(ctx):
     return ctx.attr.module_top if hasattr(ctx.attr, "module_top") else ctx.attr.src[TopInfo].module_top
 
+def _platform(ctx):
+    return ctx.attr.pdk[PdkInfo].name if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo].name
+
 def _required_arguments(ctx):
     return {
-        "PLATFORM": "asap7",
+        "PLATFORM": _platform(ctx),
         "DESIGN_NAME": _module_top(ctx),
     }
 
@@ -171,6 +186,7 @@ def _synth_impl(ctx):
     sdc = ctx.actions.declare_file("results/asap7/{}/base/1_synth.sdc".format(_module_top(ctx)))
 
     transitive_inputs = [
+        ctx.attr.pdk[PdkInfo].files,
         ctx.attr._abc[DefaultInfo].default_runfiles.files,
         ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
@@ -198,7 +214,6 @@ def _synth_impl(ctx):
         },
         inputs = depset(
             ctx.files.verilog_files +
-            ctx.files._libs +
             [
                 config,
                 ctx.executable._abc,
@@ -216,6 +231,7 @@ def _synth_impl(ctx):
             files = depset([out, sdc]),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
+        ctx.attr.pdk[PdkInfo],
         TopInfo(
             module_top = ctx.attr.module_top,
         ),
@@ -224,7 +240,7 @@ def _synth_impl(ctx):
 synth = rule(
     implementation = _synth_impl,
     attrs = yosys_attrs(),
-    provides = [DefaultInfo, TopInfo],
+    provides = [DefaultInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -233,21 +249,22 @@ def _make_impl(stage, result_names, object_names, log_names, report_names, steps
 
     results = []
     for result in result_names:
-        results.append(ctx.actions.declare_file("results/asap7/{}/base/{}".format(_module_top(ctx), result)))
+        results.append(ctx.actions.declare_file("results/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), result)))
 
     objects = []
     for object in object_names:
-        objects.append(ctx.actions.declare_file("objects/asap7/{}/base/{}".format(_module_top(ctx), object)))
+        objects.append(ctx.actions.declare_file("objects/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), object)))
 
     logs = []
     for log in log_names:
-        logs.append(ctx.actions.declare_file("logs/asap7/{}/base/{}".format(_module_top(ctx), log)))
+        logs.append(ctx.actions.declare_file("logs/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), log)))
 
     reports = []
     for report in report_names:
-        reports.append(ctx.actions.declare_file("reports/asap7/{}/base/{}".format(_module_top(ctx), report)))
+        reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
 
     transitive_inputs = [
+        ctx.attr.src[PdkInfo].files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._klayout[DefaultInfo].default_runfiles.files,
@@ -276,7 +293,8 @@ def _make_impl(stage, result_names, object_names, log_names, report_names, steps
             "KLAYOUT_CMD": ctx.executable._klayout.path,
         },
         inputs = depset(
-            ctx.files.src + ctx.files._libs + [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
+            ctx.files.src +
+            [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
             transitive = transitive_inputs + transitive_runfiles,
         ),
         outputs = results + objects + logs + reports,
@@ -291,9 +309,8 @@ def _make_impl(stage, result_names, object_names, log_names, report_names, steps
             logs = depset(logs),
             reports = depset(reports),
         ),
-        TopInfo(
-            module_top = _module_top(ctx),
-        ),
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
     ]
 
 floorplan = rule(
@@ -316,7 +333,7 @@ floorplan = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, TopInfo],
+    provides = [DefaultInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -338,7 +355,7 @@ place = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, TopInfo],
+    provides = [DefaultInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -360,7 +377,7 @@ cts = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, TopInfo],
+    provides = [DefaultInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -386,7 +403,7 @@ route = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, TopInfo],
+    provides = [DefaultInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -415,7 +432,7 @@ final = rule(
         ctx = ctx,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, TopInfo],
+    provides = [DefaultInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
