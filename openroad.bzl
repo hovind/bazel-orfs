@@ -167,8 +167,8 @@ def _config(ctx, stage):
 def _synth_impl(ctx):
     config = _config(ctx, "1_synth")
 
-    out = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.v")
-    sdc = ctx.actions.declare_file("results/asap7/tag_array_64x184/base/1_synth.sdc")
+    out = ctx.actions.declare_file("results/asap7/{}/base/1_synth.v".format(_module_top(ctx)))
+    sdc = ctx.actions.declare_file("results/asap7/{}/base/1_synth.sdc".format(_module_top(ctx)))
 
     transitive_inputs = [
         ctx.attr._abc[DefaultInfo].default_runfiles.files,
@@ -228,24 +228,24 @@ synth = rule(
     executable = False,
 )
 
-def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
+def _make_impl(stage, result_names, object_names, log_names, report_names, steps, ctx):
     config = _config(ctx, stage)
+
+    results = []
+    for result in result_names:
+        results.append(ctx.actions.declare_file("results/asap7/{}/base/{}".format(_module_top(ctx), result)))
+
     objects = []
     for object in object_names:
-        objects.append(ctx.actions.declare_file("objects/asap7/tag_array_64x184/base/{}".format(object)))
+        objects.append(ctx.actions.declare_file("objects/asap7/{}/base/{}".format(_module_top(ctx), object)))
 
     logs = []
     for log in log_names:
-        logs.append(ctx.actions.declare_file("logs/asap7/tag_array_64x184/base/{}".format(log)))
+        logs.append(ctx.actions.declare_file("logs/asap7/{}/base/{}".format(_module_top(ctx), log)))
 
     reports = []
     for report in report_names:
-        reports.append(ctx.actions.declare_file("reports/asap7/tag_array_64x184/base/{}".format(report)))
-
-    results = [
-        ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.odb".format(stage)),
-        ctx.actions.declare_file("results/asap7/tag_array_64x184/base/{}.sdc".format(stage)),
-    ]
+        reports.append(ctx.actions.declare_file("reports/asap7/{}/base/{}".format(_module_top(ctx), report)))
 
     transitive_inputs = [
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
@@ -299,6 +299,10 @@ def _make_impl(stage, object_names, log_names, report_names, steps, ctx):
 floorplan = rule(
     implementation = lambda ctx: _make_impl(
         stage = "2_floorplan",
+        result_names = [
+            "2_floorplan.odb",
+            "2_floorplan.sdc",
+        ],
         object_names = [
             "copyright.txt",
         ],
@@ -319,6 +323,10 @@ floorplan = rule(
 place = rule(
     implementation = lambda ctx: _make_impl(
         stage = "3_place",
+        result_names = [
+            "3_place.odb",
+            "3_place.sdc",
+        ],
         object_names = [],
         log_names = [
             "3_1_place_gp_skip_io.log",
@@ -337,6 +345,10 @@ place = rule(
 cts = rule(
     implementation = lambda ctx: _make_impl(
         stage = "4_cts",
+        result_names = [
+            "4_cts.odb",
+            "4_cts.sdc",
+        ],
         object_names = [],
         log_names = [
             "4_1_cts.log",
@@ -355,6 +367,10 @@ cts = rule(
 route = rule(
     implementation = lambda ctx: _make_impl(
         stage = "5_route",
+        result_names = [
+            "5_route.odb",
+            "5_route.sdc",
+        ],
         object_names = [],
         log_names = [
             "5_1_grt.log",
@@ -377,6 +393,12 @@ route = rule(
 final = rule(
     implementation = lambda ctx: _make_impl(
         stage = "6_final",
+        result_names = [
+            "6_final.gds",
+            "6_final.odb",
+            "6_final.sdc",
+            "6_final.spef",
+        ],
         object_names = [
             "klayout.lyt",
         ],
