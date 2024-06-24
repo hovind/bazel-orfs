@@ -1,5 +1,6 @@
-TopInfo = provider()
+OrfsInfo = provider()
 PdkInfo = provider()
+TopInfo = provider()
 
 def _pdk_impl(ctx):
     return [PdkInfo(
@@ -244,7 +245,7 @@ synth = rule(
     executable = False,
 )
 
-def _make_impl(stage, result_names, object_names, log_names, report_names, steps, ctx):
+def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], export_abstract = False):
     config = _config(ctx, stage)
 
     results = []
@@ -262,6 +263,14 @@ def _make_impl(stage, result_names, object_names, log_names, report_names, steps
     reports = []
     for report in report_names:
         reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
+
+    lefs = []
+    libs = []
+    gdses = []
+    if export_abstract:
+        lefs.append(ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lef".format(platform = _platform(ctx), module_top = _module_top(ctx))))
+        libs.append(ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lib".format(platform = _platform(ctx), module_top = _module_top(ctx))))
+        gdses.append(ctx.actions.declare_file("results/{platform}/{module_top}/base/{stage}.gds".format(platform = _platform(ctx), module_top = _module_top(ctx), stage = stage)))
 
     transitive_inputs = [
         ctx.attr.src[PdkInfo].files,
@@ -297,17 +306,22 @@ def _make_impl(stage, result_names, object_names, log_names, report_names, steps
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
             transitive = transitive_inputs + transitive_runfiles,
         ),
-        outputs = results + objects + logs + reports,
+        outputs = results + gdses + lefs + libs + objects + logs + reports,
     )
 
     return [
         DefaultInfo(
-            files = depset(results),
+            files = depset(results + gdses + lefs + libs),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
         OutputGroupInfo(
             logs = depset(logs),
             reports = depset(reports),
+        ),
+        OrfsInfo(
+            additional_gds = depset(gdses),
+            additional_lefs = depset(lefs),
+            additional_libs = depset(libs),
         ),
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
@@ -315,7 +329,9 @@ def _make_impl(stage, result_names, object_names, log_names, report_names, steps
 
 floorplan = rule(
     implementation = lambda ctx: _make_impl(
+        ctx = ctx,
         stage = "2_floorplan",
+        steps = ["do-floorplan"],
         result_names = [
             "2_floorplan.odb",
             "2_floorplan.sdc",
@@ -329,8 +345,6 @@ floorplan = rule(
         report_names = [
             "2_floorplan_final.rpt",
         ],
-        steps = ["do-floorplan"],
-        ctx = ctx,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -339,7 +353,9 @@ floorplan = rule(
 
 place = rule(
     implementation = lambda ctx: _make_impl(
+        ctx = ctx,
         stage = "3_place",
+        steps = ["do-place"],
         result_names = [
             "3_place.odb",
             "3_place.sdc",
@@ -351,8 +367,6 @@ place = rule(
         report_names = [
             "5_global_place.rpt",
         ],
-        steps = ["do-place"],
-        ctx = ctx,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -361,7 +375,9 @@ place = rule(
 
 cts = rule(
     implementation = lambda ctx: _make_impl(
+        ctx = ctx,
         stage = "4_cts",
+        steps = ["do-cts"],
         result_names = [
             "4_cts.odb",
             "4_cts.sdc",
@@ -373,8 +389,6 @@ cts = rule(
         report_names = [
             "4_cts_final.rpt",
         ],
-        steps = ["do-cts"],
-        ctx = ctx,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -383,7 +397,9 @@ cts = rule(
 
 route = rule(
     implementation = lambda ctx: _make_impl(
+        ctx = ctx,
         stage = "5_route",
+        steps = ["do-route"],
         result_names = [
             "5_route.odb",
             "5_route.sdc",
@@ -399,8 +415,6 @@ route = rule(
             "5_global_route.rpt",
             "congestion.rpt",
         ],
-        steps = ["do-route"],
-        ctx = ctx,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -409,9 +423,10 @@ route = rule(
 
 final = rule(
     implementation = lambda ctx: _make_impl(
+        ctx = ctx,
         stage = "6_final",
+        steps = ["do-final", "do-generate_abstract"],
         result_names = [
-            "6_final.gds",
             "6_final.odb",
             "6_final.sdc",
             "6_final.spef",
@@ -428,8 +443,7 @@ final = rule(
             "VDD.rpt",
             "VSS.rpt",
         ],
-        steps = ["do-final"],
-        ctx = ctx,
+        export_abstract = True,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
