@@ -82,6 +82,11 @@ def flow_attrs():
             doc = "Dictionary of additional flow arguments.",
             default = {},
         ),
+        "data": attr.label_list(
+            doc = "List of additional flow data.",
+            allow_files = True,
+            default = [],
+        ),
     }
 
 def yosys_only_attrs():
@@ -94,11 +99,6 @@ def yosys_only_attrs():
             allow_rules = [
             ],
             providers = [DefaultInfo],
-        ),
-        "constraint_file": attr.label(
-            allow_single_file = True,
-            doc = "Constraint file.",
-            mandatory = True,
         ),
         "deps": attr.label_list(
             default = [],
@@ -202,7 +202,7 @@ def _config(ctx, stage, all_arguments):
 
 def _synth_impl(ctx):
     orfs_info = _orfs_info(ctx)
-    all_arguments = ctx.attr.arguments | _required_arguments(ctx) | _orfs_arguments(orfs_info)
+    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(orfs_info)
     config = _config(ctx, "1_synth", all_arguments)
 
     out = ctx.actions.declare_file("results/asap7/{}/base/1_synth.v".format(_module_top(ctx)))
@@ -218,10 +218,10 @@ def _synth_impl(ctx):
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ]
 
-    transitive_runfiles = [
-        ctx.attr.constraint_file[DefaultInfo].default_runfiles.files,
-        ctx.attr.constraint_file[DefaultInfo].default_runfiles.symlinks,
-    ]
+    transitive_runfiles = []
+    for datum in ctx.attr.data:
+        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.files)
+        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.symlinks)
 
     ctx.actions.run(
         arguments = ["--file", ctx.file._makefile.path, "synth"],
@@ -233,16 +233,15 @@ def _synth_impl(ctx):
             "ABC": ctx.executable._abc.path,
             "YOSYS_CMD": ctx.executable._yosys.path,
             "VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files]),
-            "SDC_FILE": ctx.file.constraint_file.path,
         },
         inputs = depset(
             ctx.files.verilog_files +
+            ctx.files.data +
             [
                 config,
                 ctx.executable._abc,
                 ctx.executable._yosys,
                 ctx.file._makefile,
-                ctx.file.constraint_file,
             ],
             transitive = transitive_inputs,
         ),
@@ -269,7 +268,7 @@ synth = rule(
 )
 
 def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = []):
-    all_arguments = ctx.attr.arguments | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
+    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
     config = _config(ctx, stage, all_arguments)
 
     results = []
@@ -290,6 +289,8 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
 
     transitive_inputs = [
         ctx.attr.src[PdkInfo].files,
+        ctx.attr.src[DefaultInfo].default_runfiles.files,
+        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._klayout[DefaultInfo].default_runfiles.files,
@@ -299,8 +300,9 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     ]
 
     transitive_runfiles = [
-        ctx.attr.src[DefaultInfo].default_runfiles.files,
-        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
+        datum[DefaultInfo].default_runfiles.files +
+        datum[DefaultInfo].default_runfiles.symlinks
+        for datum in ctx.attr.data
     ]
 
     ctx.actions.run(
@@ -477,8 +479,9 @@ def _abstract_impl(ctx):
     ]
 
     transitive_runfiles = [
-        ctx.attr.src[DefaultInfo].default_runfiles.files,
-        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
+        datum[DefaultInfo].default_runfiles.files +
+        datum[DefaultInfo].default_runfiles.symlinks
+        for datum in ctx.attr.data
     ]
 
     ctx.actions.run(

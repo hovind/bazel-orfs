@@ -32,8 +32,8 @@ filegroup(
 filegroup(
     name = "io-sram",
     srcs = [
-        "test/io-sram.tcl",
-        ":util",
+        ":test/io-sram.tcl",
+        ":test/util.tcl",
     ],
     visibility = [":__subpackages__"],
 )
@@ -60,7 +60,12 @@ filegroup(
 synth(
     name = "test_synth",
     module_top = "tag_array_64x184",
-    constraint_file = ":constraints-sram",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-sram)",
+    },
+    data = [
+        ":constraints-sram",
+    ],
     verilog_files = ["test/mock/tag_array_64x184.sv"],
 )
 
