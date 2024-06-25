@@ -186,13 +186,10 @@ def _orfs_arguments(info):
     return args
 
 def _orfs_info(ctx):
-    gds = [dep[OrfsInfo].additional_gds for dep in ctx.attr.deps]
-    lefs = [dep[OrfsInfo].additional_lefs for dep in ctx.attr.deps]
-    libs = [dep[OrfsInfo].additional_libs for dep in ctx.attr.deps]
     return OrfsInfo(
-        additional_gds = gds,
-        additional_lefs = lefs,
-        additional_libs = libs,
+        additional_gds = [dep[OrfsInfo].additional_gds for dep in ctx.attr.deps],
+        additional_lefs = [dep[OrfsInfo].additional_lefs for dep in ctx.attr.deps],
+        additional_libs = [dep[OrfsInfo].additional_libs for dep in ctx.attr.deps],
     )
 
 def _config(ctx, stage, all_arguments):
@@ -271,7 +268,7 @@ synth = rule(
     executable = False,
 )
 
-def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], export_abstract = False):
+def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = []):
     all_arguments = ctx.attr.arguments | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
     config = _config(ctx, stage, all_arguments)
 
@@ -290,14 +287,6 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     reports = []
     for report in report_names:
         reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
-
-    gds = []
-    lefs = []
-    libs = []
-    if export_abstract:
-        gds = [ctx.actions.declare_file("results/{platform}/{module_top}/base/{stage}.gds".format(platform = _platform(ctx), module_top = _module_top(ctx), stage = stage))]
-        lefs = [ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lef".format(platform = _platform(ctx), module_top = _module_top(ctx)))]
-        libs = [ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lib".format(platform = _platform(ctx), module_top = _module_top(ctx)))]
 
     transitive_inputs = [
         ctx.attr.src[PdkInfo].files,
@@ -333,23 +322,19 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
             transitive = transitive_inputs + transitive_runfiles,
         ),
-        outputs = results + gds + lefs + libs + objects + logs + reports,
+        outputs = results + objects + logs + reports,
     )
 
     return [
         DefaultInfo(
-            files = depset(results + gds + lefs + libs),
+            files = depset(results),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
         OutputGroupInfo(
             logs = depset(logs),
             reports = depset(reports),
         ),
-        OrfsInfo(
-            additional_gds = gds,
-            additional_lefs = lefs,
-            additional_libs = libs,
-        ) if export_abstract else ctx.attr.src[OrfsInfo],
+        ctx.attr.src[OrfsInfo],
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
     ]
@@ -452,7 +437,7 @@ final = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_final",
-        steps = ["do-final", "do-generate_abstract"],
+        steps = ["do-final"],
         result_names = [
             "6_final.odb",
             "6_final.sdc",
@@ -470,10 +455,69 @@ final = rule(
             "VDD.rpt",
             "VSS.rpt",
         ],
-        export_abstract = True,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
+    executable = False,
+)
+
+def _abstract_impl(ctx):
+    all_arguments = ctx.attr.arguments | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
+    config = _config(ctx, "7_abstract", all_arguments)
+
+    lef = ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lef".format(platform = _platform(ctx), module_top = _module_top(ctx)))
+    lib = ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lib".format(platform = _platform(ctx), module_top = _module_top(ctx)))
+
+    transitive_inputs = [
+        ctx.attr.src[PdkInfo].files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    transitive_runfiles = [
+        ctx.attr.src[DefaultInfo].default_runfiles.files,
+        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    ctx.actions.run(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+            "do-generate_abstract",
+        ],
+        executable = "make",
+        env = {
+            "WORK_HOME": ctx.genfiles_dir.path,
+            "HOME": ctx.genfiles_dir.path,
+            "DESIGN_CONFIG": config.path,
+            "FLOW_HOME": ctx.file._makefile.dirname,
+            "OPENROAD_EXE": ctx.executable._openroad.path,
+        },
+        inputs = depset(
+            ctx.files.src + [config, ctx.executable._openroad, ctx.file._makefile],
+            transitive = transitive_inputs + transitive_runfiles,
+        ),
+        outputs = [lef, lib],
+    )
+
+    return [
+        DefaultInfo(
+            files = depset([lef, lib]),
+            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
+        ),
+        OrfsInfo(
+            additional_gds = depset([f for f in ctx.files.src if f.extension == "gds"]),
+            additional_lefs = depset([lef]),
+            additional_libs = depset([lib]),
+        ),
+    ]
+
+abstract = rule(
+    implementation = _abstract_impl,
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo, OrfsInfo],
     executable = False,
 )
 

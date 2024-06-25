@@ -1,5 +1,5 @@
 load("@rules_oci//oci:defs.bzl", "oci_tarball")
-load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "cheat", "create_out_rule", "cts", "final", "floorplan", "place", "route", "synth")
+load("//:openroad.bzl", "abstract", "add_options_all_stages", "build_openroad", "cheat", "create_out_rule", "cts", "final", "floorplan", "place", "route", "synth")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -91,6 +91,11 @@ route(
 final(
     name = "test_final",
     src = ":test_route",
+)
+
+abstract(
+    name = "test_abstract",
+    src = ":test_final",
 )
 
 cheat(
