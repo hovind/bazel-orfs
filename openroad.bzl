@@ -267,7 +267,7 @@ synth = rule(
     executable = False,
 )
 
-def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = []):
+def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], export_macro = False):
     all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
     config = _config(ctx, stage, all_arguments)
 
@@ -336,7 +336,11 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             logs = depset(logs),
             reports = depset(reports),
         ),
-        ctx.attr.src[OrfsInfo],
+        OrfsInfo(
+            additional_gds = depset([f for f in results if f.extension == "gds"]),
+            additional_lefs = depset([f for f in results if f.extension == "lef"]),
+            additional_libs = depset([f for f in results if f.extension == "lib"]),
+        ) if export_macro else ctx.attr.src[OrfsInfo],
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
     ]
@@ -359,6 +363,7 @@ floorplan = rule(
         report_names = [
             "2_floorplan_final.rpt",
         ],
+        export_macro = False,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -381,6 +386,7 @@ place = rule(
         report_names = [
             "5_global_place.rpt",
         ],
+        export_macro = False,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -403,6 +409,7 @@ cts = rule(
         report_names = [
             "4_cts_final.rpt",
         ],
+        export_macro = False,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -429,6 +436,7 @@ route = rule(
             "5_global_route.rpt",
             "congestion.rpt",
         ],
+        export_macro = False,
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -439,8 +447,11 @@ final = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_final",
-        steps = ["do-final"],
+        steps = ["do-final", "do-generate_abstract"],
         result_names = [
+            "{}.lef".format(ctx.attr.src[TopInfo].module_top),
+            "{}.lib".format(ctx.attr.src[TopInfo].module_top),
+            "6_final.gds",
             "6_final.odb",
             "6_final.sdc",
             "6_final.spef",
@@ -457,70 +468,10 @@ final = rule(
             "VDD.rpt",
             "VSS.rpt",
         ],
+        export_macro = True,
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, PdkInfo, TopInfo],
-    executable = False,
-)
-
-def _abstract_impl(ctx):
-    all_arguments = ctx.attr.arguments | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = _config(ctx, "7_abstract", all_arguments)
-
-    lef = ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lef".format(platform = _platform(ctx), module_top = _module_top(ctx)))
-    lib = ctx.actions.declare_file("results/{platform}/{module_top}/base/{module_top}.lib".format(platform = _platform(ctx), module_top = _module_top(ctx)))
-
-    transitive_inputs = [
-        ctx.attr.src[PdkInfo].files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-    ]
-
-    transitive_runfiles = [
-        datum[DefaultInfo].default_runfiles.files +
-        datum[DefaultInfo].default_runfiles.symlinks
-        for datum in ctx.attr.data
-    ]
-
-    ctx.actions.run(
-        arguments = [
-            "--file",
-            ctx.file._makefile.path,
-            "do-generate_abstract",
-        ],
-        executable = "make",
-        env = {
-            "WORK_HOME": ctx.genfiles_dir.path,
-            "HOME": ctx.genfiles_dir.path,
-            "DESIGN_CONFIG": config.path,
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "OPENROAD_EXE": ctx.executable._openroad.path,
-        },
-        inputs = depset(
-            ctx.files.src + [config, ctx.executable._openroad, ctx.file._makefile],
-            transitive = transitive_inputs + transitive_runfiles,
-        ),
-        outputs = [lef, lib],
-    )
-
-    return [
-        DefaultInfo(
-            files = depset([lef, lib]),
-            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
-        ),
-        OrfsInfo(
-            additional_gds = depset([f for f in ctx.files.src if f.extension == "gds"]),
-            additional_lefs = depset([lef]),
-            additional_libs = depset([lib]),
-        ),
-    ]
-
-abstract = rule(
-    implementation = _abstract_impl,
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OrfsInfo],
+    provides = [DefaultInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
