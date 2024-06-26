@@ -253,6 +253,11 @@ def _synth_impl(ctx):
             files = depset([out, sdc]),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
+        OutputGroupInfo(
+            logs = depset([]),
+            reports = depset([]),
+            **{f.basename: depset([f]) for f in [out, sdc]}
+        ),
         orfs_info,
         ctx.attr.pdk[PdkInfo],
         TopInfo(
@@ -335,6 +340,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         OutputGroupInfo(
             logs = depset(logs),
             reports = depset(reports),
+            **{f.basename: depset([f]) for f in results + objects + logs + reports}
         ),
         OrfsInfo(
             additional_gds = depset([f for f in results + ctx.files.src if f.extension == "gds"]),
