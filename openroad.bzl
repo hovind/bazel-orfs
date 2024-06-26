@@ -337,9 +337,9 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             reports = depset(reports),
         ),
         OrfsInfo(
-            additional_gds = depset([f for f in results if f.extension == "gds"]),
-            additional_lefs = depset([f for f in results if f.extension == "lef"]),
-            additional_libs = depset([f for f in results if f.extension == "lib"]),
+            additional_gds = depset([f for f in results + ctx.files.src if f.extension == "gds"]),
+            additional_lefs = depset([f for f in results + ctx.files.src if f.extension == "lef"]),
+            additional_libs = depset([f for f in results + ctx.files.src if f.extension == "lib"]),
         ) if export_macro else ctx.attr.src[OrfsInfo],
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
@@ -447,10 +447,8 @@ final = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_final",
-        steps = ["do-final", "do-generate_abstract"],
+        steps = ["do-final"],
         result_names = [
-            "{}.lef".format(ctx.attr.src[TopInfo].module_top),
-            "{}.lib".format(ctx.attr.src[TopInfo].module_top),
             "6_final.gds",
             "6_final.odb",
             "6_final.sdc",
@@ -467,6 +465,28 @@ final = rule(
             "6_finish.rpt",
             "VDD.rpt",
             "VSS.rpt",
+        ],
+        export_macro = False,
+    ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo, OrfsInfo, PdkInfo, TopInfo],
+    executable = False,
+)
+
+abstract = rule(
+    implementation = lambda ctx: _make_impl(
+        ctx = ctx,
+        stage = "7_abstract",
+        steps = ["do-generate_abstract"],
+        result_names = [
+            "{}.lef".format(ctx.attr.src[TopInfo].module_top),
+            "{}.lib".format(ctx.attr.src[TopInfo].module_top),
+        ],
+        object_names = [
+        ],
+        log_names = [
+        ],
+        report_names = [
         ],
         export_macro = True,
     ),
