@@ -227,7 +227,7 @@ def _synth_impl(ctx):
         arguments = ["--file", ctx.file._makefile.path, "synth"],
         executable = "make",
         env = {
-            "WORK_HOME": ctx.genfiles_dir.path,
+            "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "FLOW_HOME": ctx.file._makefile.dirname,
             "DESIGN_CONFIG": config.path,
             "ABC": ctx.executable._abc.path,
@@ -312,7 +312,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ] + steps,
         executable = "make",
         env = {
-            "WORK_HOME": ctx.genfiles_dir.path,
+            "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "HOME": ctx.genfiles_dir.path,
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
