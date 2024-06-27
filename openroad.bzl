@@ -464,7 +464,6 @@ place = rule(
             "3_place.odb",
             "3_place.sdc",
         ],
-        object_names = [],
         log_names = [
             "3_1_place_gp_skip_io.log",
         ],
@@ -487,7 +486,6 @@ cts = rule(
             "4_cts.odb",
             "4_cts.sdc",
         ],
-        object_names = [],
         log_names = [
             "4_1_cts.log",
         ],
@@ -510,7 +508,6 @@ route = rule(
             "5_route.odb",
             "5_route.sdc",
         ],
-        object_names = [],
         log_names = [
             "5_1_grt.log",
             "5_2_fillcell.log",
@@ -566,12 +563,6 @@ abstract = rule(
         result_names = [
             "{}.lef".format(ctx.attr.src[TopInfo].module_top),
             "{}.lib".format(ctx.attr.src[TopInfo].module_top),
-        ],
-        object_names = [
-        ],
-        log_names = [
-        ],
-        report_names = [
         ],
         export_macro = True,
     ),
