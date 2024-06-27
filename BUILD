@@ -1,5 +1,5 @@
 load("@rules_oci//oci:defs.bzl", "oci_tarball")
-load("//:openroad.bzl", "abstract", "add_options_all_stages", "build_openroad", "cheat", "create_out_rule", "cts", "final", "floorplan", "place", "route", "synth")
+load("//:openroad.bzl", "abstract", "add_options_all_stages", "build_openroad", "cheat", "create_out_rule", "cts", "final", "floorplan", "orfs_open", "place", "route", "synth")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -101,6 +101,20 @@ final(
 abstract(
     name = "test_abstract",
     src = ":test_final",
+)
+
+orfs_open(
+    name = "test_report",
+    src = ":test_final",
+    script = ":report.tcl",
+    outs = [
+        "final_clocks.webp.png",
+        "final_placement.webp.png",
+        "final_routing.webp.png",
+        "final_ir_drop.webp.png",
+        "final_resizer.webp.png",
+        "report.yaml",
+    ],
 )
 
 cheat(

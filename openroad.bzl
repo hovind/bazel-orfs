@@ -18,6 +18,83 @@ pdk = rule(
     },
 )
 
+def _orfs_open_impl(ctx):
+    all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
+    config = _config(ctx, "open", all_arguments)
+
+    outs = []
+    for k in dir(ctx.outputs):
+        outs.extend(getattr(ctx.outputs, k))
+
+    transitive_inputs = [
+        ctx.attr.src[PdkInfo].files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    odb = [f for f in ctx.files.src if f.extension == "odb"].pop()
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+            "open_{}".format(odb.basename),
+        ],
+        command = "make $@ < {}".format(ctx.file.script.path),
+        env = {
+            "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
+            "DESIGN_CONFIG": config.path,
+            "FLOW_HOME": ctx.file._makefile.dirname,
+            "OPENROAD_EXE": ctx.executable._openroad.path,
+            "ODB_FILE": odb.path,
+        },
+        inputs = depset(
+            ctx.files.src +
+            [config, ctx.file.script, ctx.executable._openroad, ctx.file._makefile],
+            transitive = transitive_inputs,
+        ),
+        outputs = outs,
+    )
+    return [
+        DefaultInfo(
+            files = depset(outs),
+        ),
+        OutputGroupInfo(
+            **{f.basename: depset([f]) for f in outs}
+        ),
+    ]
+
+orfs_open = rule(
+    implementation = _orfs_open_impl,
+    attrs = {
+        "src": attr.label(
+            mandatory = True,
+            providers = [OrfsInfo],
+        ),
+        "script": attr.label(
+            mandatory = True,
+            allow_single_file = ["tcl"],
+        ),
+        "outs": attr.output_list(
+            mandatory = True,
+            allow_empty = False,
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
+        ),
+    },
+)
+
 def _cheat_impl(ctx):
     transitive = depset([], transitive = [
         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
@@ -224,7 +301,7 @@ def _synth_impl(ctx):
         transitive_runfiles.append(datum[DefaultInfo].default_runfiles.symlinks)
 
     ctx.actions.run(
-        arguments = ["--always-make", "--file", ctx.file._makefile.path, "synth"],
+        arguments = ["--file", ctx.file._makefile.path, "synth"],
         executable = "make",
         env = {
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
@@ -311,11 +388,10 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     ]
 
     ctx.actions.run(
-        arguments = ["--always-make", "--file", ctx.file._makefile.path] + steps,
+        arguments = ["--file", ctx.file._makefile.path] + steps,
         executable = "make",
         env = {
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
-            "HOME": ctx.genfiles_dir.path,
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
