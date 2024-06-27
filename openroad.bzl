@@ -51,6 +51,7 @@ def _orfs_open_impl(ctx):
         },
         inputs = depset(
             ctx.files.src +
+            ctx.files.data +
             [config, ctx.file.script, ctx.executable._openroad, ctx.file._makefile],
             transitive = transitive_inputs,
         ),
@@ -68,6 +69,11 @@ def _orfs_open_impl(ctx):
 orfs_open = rule(
     implementation = _orfs_open_impl,
     attrs = {
+        "data": attr.label_list(
+            doc = "List of additional data.",
+            allow_files = True,
+            default = [],
+        ),
         "src": attr.label(
             mandatory = True,
             providers = [OrfsInfo],
