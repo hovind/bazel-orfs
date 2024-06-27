@@ -224,7 +224,7 @@ def _synth_impl(ctx):
         transitive_runfiles.append(datum[DefaultInfo].default_runfiles.symlinks)
 
     ctx.actions.run(
-        arguments = ["--file", ctx.file._makefile.path, "synth"],
+        arguments = ["--always-make", "--file", ctx.file._makefile.path, "synth"],
         executable = "make",
         env = {
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
@@ -311,10 +311,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     ]
 
     ctx.actions.run(
-        arguments = [
-            "--file",
-            ctx.file._makefile.path,
-        ] + steps,
+        arguments = ["--always-make", "--file", ctx.file._makefile.path] + steps,
         executable = "make",
         env = {
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
