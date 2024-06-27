@@ -1,6 +1,7 @@
 load("@bazel-orfs//:cc.bzl", "cc_import_binary", "cc_import_library")
 load("@bazel-orfs//:copytree.bzl", "copytree")
 load("@bazel-orfs//:openroad.bzl", "pdk")
+load("@bazel-orfs//:stringpatch.bzl", "stringpatch_binary")
 
 filegroup(
     name = "klayout_pymod",
@@ -58,13 +59,18 @@ cc_import(
 )
 
 cc_import_binary(
-    name = "openroad",
+    name = "openroad_raw",
+    data = [
+        ":lib/tcl/pkgIndex.tcl",
+        ":lib/tcl/tclreadlineCompleter.tcl",
+        ":lib/tcl/tclreadlineInit.tcl",
+        ":lib/tcl/tclreadlineSetup.tcl",
+    ],
     deps = [
         ":libortools",
         ":libtclreadline",
     ],
     executable = ":bin/openroad",
-    visibility = ["//visibility:public"],
 )
 
 cc_import_binary(
@@ -440,5 +446,17 @@ copytree(
 copytree(
     name = "yosys_share",
     srcs = glob(["share/**"]),
+    visibility = ["//visibility:public"],
+)
+
+stringpatch_binary(
+    name = "openroad",
+    data = [
+        ":lib/tcl/tclreadlineInit.tcl",
+    ],
+    src = ":openroad_raw",
+    replacements = {
+        "/usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/tclreadlineInit.tcl": "$(location :lib/tcl/tclreadlineInit.tcl)",
+    },
     visibility = ["//visibility:public"],
 )

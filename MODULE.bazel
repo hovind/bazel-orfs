@@ -56,6 +56,7 @@ docker_pkg(
         "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
         "usr/lib/x86_64-linux-gnu/": "lib/",
         "usr/lib/klayout/": "lib/klayout/",
+        "usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/": "lib/tcl/",
     },
     patches = [
         ":Makefile.patch",
