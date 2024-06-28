@@ -13,7 +13,14 @@ filegroup(
 
 filegroup(
     name = "mk",
-    srcs = glob(["flow/**/*.mk", "flow/**/*.py", "flow/**/*.tcl", "flow/**/*.pl", "flow/**/*.script"]),
+    srcs = glob([
+        "flow/util/utils.mk",
+        "flow/util/*.pl",
+        "flow/util/*.py",
+        "flow/scripts/*.py",
+        "flow/scripts/*.script",
+        "flow/scripts/*.tcl",
+    ]),
 )
 
 filegroup(
@@ -31,7 +38,9 @@ pdk(
         "flow/platforms/asap7/**/*.lef",
         "flow/platforms/asap7/**/*.lib",
         "flow/platforms/asap7/**/*.lyt",
+        "flow/platforms/asap7/**/*.mk",
         "flow/platforms/asap7/**/*.rules",
+        "flow/platforms/asap7/**/*.tcl",
         "flow/platforms/asap7/**/*.v",
         "flow/platforms/common/**/*.v",
     ]),
