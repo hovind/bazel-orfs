@@ -103,15 +103,18 @@ orfs_open = rule(
 
 def _cheat_impl(ctx):
     transitive = depset([], transitive = [
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
         ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ])
 
+    out = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
         template = ctx.file._template,
-        output = ctx.outputs.source_file,
+        output = out,
         substitutions = {
             "{WORK_HOME}": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "{YOSYS_PATH}": ctx.executable._yosys.path,
@@ -122,14 +125,13 @@ def _cheat_impl(ctx):
         },
     )
     return [DefaultInfo(
-        files = depset([ctx.outputs.source_file]),
+        files = depset([out]),
         runfiles = ctx.runfiles(files = [], transitive_files = transitive),
     )]
 
 cheat = rule(
     implementation = _cheat_impl,
     attrs = {
-        "source_file": attr.output(mandatory = True),
         "pdk": attr.label(
             doc = "Process design kit.",
             default = Label("@docker_orfs//:asap7"),

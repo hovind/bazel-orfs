@@ -118,8 +118,7 @@ orfs_open(
 )
 
 cheat(
-    name = "cheat",
-    source_file = "cheat.sh",
+    name = "cheat.sh",
 )
 
 build_openroad(
