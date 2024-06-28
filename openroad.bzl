@@ -400,11 +400,10 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ]
 
-    transitive_runfiles = [
-        datum[DefaultInfo].default_runfiles.files +
-        datum[DefaultInfo].default_runfiles.symlinks
-        for datum in ctx.attr.data
-    ]
+    transitive_runfiles = []
+    for datum in ctx.attr.data:
+        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.files)
+        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.symlinks)
 
     ctx.actions.run(
         arguments = ["--file", ctx.file._makefile.path] + steps,
