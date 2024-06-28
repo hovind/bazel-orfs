@@ -113,8 +113,10 @@ def _cheat_impl(ctx):
         template = ctx.file._template,
         output = ctx.outputs.source_file,
         substitutions = {
+            "{WORK_HOME}": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "{YOSYS_PATH}": ctx.executable._yosys.path,
             "{OPENROAD_PATH}": ctx.executable._openroad.path,
+            "{KLAYOUT_PATH}": ctx.executable._klayout.path,
             "{MAKEFILE_PATH}": ctx.file._makefile.path,
             "{MAKEFILE_DIR}": ctx.file._makefile.dirname,
         },
@@ -151,6 +153,13 @@ cheat = rule(
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
+        ),
+        "_klayout": attr.label(
+            doc = "Klayout binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:klayout"),
         ),
         "_template": attr.label(
             default = ":cheat.sh.tpl",
@@ -268,6 +277,9 @@ def _orfs_arguments(info):
         args["ADDITIONAL_LIBS"] = " ".join(info.additional_libs.to_list())
     return args
 
+def _verilog_arguments(ctx):
+    return {"VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files])} if hasattr(ctx.attr, "verilog_files") else {}
+
 def _orfs_info(ctx):
     return OrfsInfo(
         additional_gds = [dep[OrfsInfo].additional_gds for dep in ctx.attr.deps],
@@ -285,7 +297,7 @@ def _config(ctx, stage, all_arguments):
 
 def _synth_impl(ctx):
     orfs_info = _orfs_info(ctx)
-    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(orfs_info)
+    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(orfs_info) | _verilog_arguments(ctx)
     config = _config(ctx, "1_synth", all_arguments)
 
     out = ctx.actions.declare_file("results/asap7/{}/base/1_synth.v".format(_module_top(ctx)))
@@ -315,7 +327,6 @@ def _synth_impl(ctx):
             "DESIGN_CONFIG": config.path,
             "ABC": ctx.executable._abc.path,
             "YOSYS_CMD": ctx.executable._yosys.path,
-            "VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files]),
         },
         inputs = depset(
             ctx.files.verilog_files +
@@ -333,13 +344,13 @@ def _synth_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset([out, sdc]),
+            files = depset([config, out, sdc]),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
         OutputGroupInfo(
             logs = depset([]),
             reports = depset([]),
-            **{f.basename: depset([f]) for f in [out, sdc]}
+            **{f.basename: depset([f]) for f in [config, out, sdc]}
         ),
         orfs_info,
         ctx.attr.pdk[PdkInfo],
@@ -413,13 +424,13 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
 
     return [
         DefaultInfo(
-            files = depset(results),
+            files = depset([config] + results),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
         OutputGroupInfo(
             logs = depset(logs),
             reports = depset(reports),
-            **{f.basename: depset([f]) for f in results + objects + logs + reports}
+            **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports}
         ),
         OrfsInfo(
             additional_gds = depset([f for f in results + ctx.files.src if f.extension == "gds"]),
