@@ -482,41 +482,37 @@ def _config_content(arguments, paths):
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
 
-def _add_optional_generation_to_command(command, optional_files):
+def _generation_commands(optional_files):
     if optional_files:
-        return " && ".join([
+        return [
             "mkdir -p " + " ".join(sorted([result.dirname for result in optional_files])),
             "touch " + " ".join(sorted([result.path for result in optional_files])),
-            command,
-        ])
-    return command
+        ]
+    return []
+
+def _output_commands(ctx, results):
+    reverse = {v: k for k, v in ctx.attr.outputs.items()}
+    return ["mv {} {}".format(
+        "/".join([result.dirname, reverse[result.basename]]),
+        result.path,
+    ) for result in results if result.basename in reverse]
 
 def _work_home(ctx):
     if ctx.label.package:
         return "/".join([ctx.genfiles_dir.path, ctx.label.package])
     return ctx.genfiles_dir.path
 
-def _artifact_dir(ctx, category):
+def _artifact_name(ctx, category, name):
     return "/".join([
         category,
         _platform(ctx),
         _module_top(ctx),
         ctx.attr.variant,
+        name,
     ])
 
-def _gather_results(ctx, results):
-    outputs = []
-    for output in results:
-        if output.basename in ctx.attr.outputs and ctx.attr.outputs[output.basename] != output.basename:
-            renamed = _declare_artifact(ctx, "results", ctx.attr.outputs[output.basename])
-            ctx.actions.symlink(output = renamed, target_file = output)
-            outputs.append(renamed)
-        else:
-            outputs.append(output)
-    return outputs
-
 def _declare_artifact(ctx, category, name):
-    return ctx.actions.declare_file("/".join([_artifact_dir(ctx, category), name]))
+    return ctx.actions.declare_file(_artifact_name(ctx, category, name))
 
 def _run_impl(ctx):
     config = ctx.attr.src[OrfsInfo].config
@@ -586,11 +582,11 @@ def _yosys_impl(ctx):
 
     canon_output = _declare_artifact(ctx, "results", CANON_OUTPUT)
 
-    command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", canon_logs)
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(canon_logs)
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path, canon_output.path],
-        command = command,
+        command = " && ".join(commands),
         env = _verilog_arguments(ctx.files.verilog_files) |
               flow_environment(ctx) |
               yosys_environment(ctx) |
@@ -616,13 +612,15 @@ def _yosys_impl(ctx):
 
     synth_outputs = []
     for output in SYNTH_OUTPUTS:
+        if output in ctx.attr.outputs:
+            output = ctx.attr.outputs[output]
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
-    command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", synth_logs)
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs) + _output_commands(ctx, synth_outputs)
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path, "--old-file", canon_output.path, "yosys-dependencies"] +
-                    [f.path for f in synth_outputs],
-        command = command,
+                    ["/".join([_work_home(ctx), _artifact_name(ctx, "results", name)]) for name in SYNTH_OUTPUTS],
+        command = " && ".join(commands),
         env = _verilog_arguments([]) |
               flow_environment(ctx) |
               yosys_environment(ctx) |
@@ -641,7 +639,7 @@ def _yosys_impl(ctx):
         outputs = synth_outputs + synth_logs,
     )
 
-    outputs = _gather_results(ctx, [canon_output] + synth_outputs)
+    outputs = [canon_output] + synth_outputs
 
     config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
@@ -786,12 +784,11 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     for file in forwards + results:
         info[file.extension] = file
 
-    command = ctx.executable._make.path + " $@"
-    command = _add_optional_generation_to_command(command, reports + logs)
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(reports + logs) + _output_commands(ctx, results)
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
-        command = command,
+        command = " && ".join(commands),
         env = flow_environment(ctx) | config_environment(config),
         inputs = depset(
             [config] +
@@ -804,8 +801,6 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         ),
         outputs = results + objects + logs + reports,
     )
-
-    results = _gather_results(ctx, results)
 
     config_short = _declare_artifact(ctx, "results", stage + ".short.mk")
     ctx.actions.write(
