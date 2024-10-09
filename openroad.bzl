@@ -1281,6 +1281,7 @@ def orfs_flow(
         sources = {},
         stage_sources = {},
         stage_arguments = {},
+        stage_outputs = {},
         arguments = {},
         extra_configs = {},
         abstract_stage = None,
@@ -1312,6 +1313,7 @@ def orfs_flow(
         sources = sources,
         stage_sources = stage_sources,
         stage_arguments = stage_arguments,
+        stage_outputs = stage_outputs,
         arguments = arguments,
         extra_configs = extra_configs,
         abstract_stage = abstract_stage,
@@ -1343,6 +1345,7 @@ def orfs_flow(
         sources = sources,
         stage_sources = stage_sources,
         stage_arguments = mock_stage_arguments,
+        stage_outputs = stage_outputs,
         arguments = {},
         extra_configs = extra_configs | mock_configs,
         abstract_stage = "floorplan",
@@ -1369,6 +1372,9 @@ def orfs_flow(
         module_top = name,
     )
 
+def _kwargs(stage, **kwargs):
+    return {k: v[stage] for k, v in kwargs.items() if stage in v and v[stage]}
+
 def _orfs_pass(
         name,
         verilog_files,
@@ -1376,6 +1382,7 @@ def _orfs_pass(
         sources,
         stage_sources,
         stage_arguments,
+        stage_outputs,
         arguments,
         extra_configs,
         abstract_stage,
@@ -1401,6 +1408,10 @@ def _orfs_pass(
         variant = variant,
         verilog_files = verilog_files,
         visibility = visibility,
+        **_kwargs(
+            synth_step.stage,
+            outputs = stage_outputs,
+        )
     )
     orfs_deps(
         name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
@@ -1418,6 +1429,10 @@ def _orfs_pass(
             extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
             visibility = visibility,
+            **_kwargs(
+                step.stage,
+                outputs = stage_outputs,
+            )
         )
         orfs_deps(
             name = "{}_deps".format(step_name),
