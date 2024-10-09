@@ -294,6 +294,9 @@ def _deps_impl(ctx):
         ),
     ]
 
+def flow_provides():
+    return [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo]
+
 def flow_attrs():
     return {
         "arguments": attr.string_dict(
@@ -398,6 +401,13 @@ def yosys_only_attrs():
         ),
     }
 
+def output_attrs(outputs):
+    return {
+        "outputs": attr.string_dict(
+            default = {out: out for out in outputs},
+        ),
+    }
+
 def synth_attrs():
     return {
         "verilog_files": attr.label_list(
@@ -494,6 +504,17 @@ def _artifact_dir(ctx, category):
         ctx.attr.variant,
     ])
 
+def _gather_results(ctx, results):
+    outputs = []
+    for output in results:
+        if output.basename in ctx.attr.outputs and ctx.attr.outputs[output.basename] != output.basename:
+            renamed = _declare_artifact(ctx, "results", ctx.attr.outputs[output.basename])
+            ctx.actions.symlink(output = renamed, target_file = output)
+            outputs.append(renamed)
+        else:
+            outputs.append(output)
+    return outputs
+
 def _declare_artifact(ctx, category, name):
     return ctx.actions.declare_file("/".join([_artifact_dir(ctx, category), name]))
 
@@ -548,6 +569,9 @@ orfs_run = rule(
     },
 )
 
+CANON_OUTPUT = "1_synth.rtlil"
+SYNTH_OUTPUTS = ["1_synth.v", "1_synth.sdc", "mem.json"]
+
 def _yosys_impl(ctx):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps])
     config = _declare_artifact(ctx, "results", "1_synth.mk")
@@ -560,7 +584,7 @@ def _yosys_impl(ctx):
     for log in ["1_1_yosys_canonicalize.log"]:
         canon_logs.append(_declare_artifact(ctx, "logs", log))
 
-    canon_output = _declare_artifact(ctx, "results", "1_synth.rtlil")
+    canon_output = _declare_artifact(ctx, "results", CANON_OUTPUT)
 
     command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", canon_logs)
 
@@ -591,7 +615,7 @@ def _yosys_impl(ctx):
         synth_logs.append(_declare_artifact(ctx, "logs", log))
 
     synth_outputs = []
-    for output in ["1_synth.v", "1_synth.sdc", "mem.json"]:
+    for output in SYNTH_OUTPUTS:
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
     command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", synth_logs)
@@ -617,6 +641,8 @@ def _yosys_impl(ctx):
         outputs = synth_outputs + synth_logs,
     )
 
+    outputs = _gather_results(ctx, [canon_output] + synth_outputs)
+
     config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
         output = config_short,
@@ -638,7 +664,7 @@ def _yosys_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join(sorted([f.short_path for f in synth_outputs + [config_short] + canon_logs + synth_logs])),
+            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + outputs + canon_logs + synth_logs])),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -647,9 +673,9 @@ def _yosys_impl(ctx):
     return [
         DefaultInfo(
             executable = exe,
-            files = depset([canon_output] + synth_outputs),
+            files = depset(outputs),
             runfiles = ctx.runfiles(
-                synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make] +
+                outputs + canon_logs + synth_logs + [config_short, make] +
                 ctx.files.verilog_files + ctx.files.extra_configs,
                 transitive_files = depset(transitive = [
                     flow_inputs(ctx),
@@ -663,7 +689,7 @@ def _yosys_impl(ctx):
         OutputGroupInfo(
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
-            **{f.basename: depset([f]) for f in [canon_output, config] + synth_outputs}
+            **{f.basename: depset([f]) for f in [config] + outputs}
         ),
         OrfsDepInfo(
             make = make,
@@ -704,7 +730,7 @@ def _yosys_impl(ctx):
 
 orfs_synth = rule(
     implementation = _yosys_impl,
-    attrs = yosys_attrs() | synth_attrs(),
+    attrs = yosys_attrs() | synth_attrs() | output_attrs(SYNTH_OUTPUTS + [CANON_OUTPUT]),
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo, LoggingInfo],
     executable = True,
 )
@@ -739,7 +765,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     )
 
     results = []
-    for result in result_names:
+    for result in ctx.attr.outputs.keys() + result_names:
         results.append(_declare_artifact(ctx, "results", result))
 
     objects = []
@@ -779,6 +805,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         outputs = results + objects + logs + reports,
     )
 
+    results = _gather_results(ctx, results)
+
     config_short = _declare_artifact(ctx, "results", stage + ".short.mk")
     ctx.actions.write(
         output = config_short,
@@ -810,7 +838,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         DefaultInfo(
             executable = exe,
             files = depset(
-                forwards + reports + results,
+                forwards + results + logs + reports,
                 transitive = [
                     ctx.attr.src[OrfsInfo].additional_gds,
                     ctx.attr.src[OrfsInfo].additional_lefs,
@@ -865,27 +893,11 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         ctx.attr.src[TopInfo],
     ]
 
-def add_orfs_make_rule_(
-        implementation,
-        attrs = openroad_attrs(),
-        provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-        executable = True):
-    return rule(
-        implementation = implementation,
-        attrs = attrs,
-        provides = provides,
-        executable = executable,
-    )
-
-orfs_floorplan = add_orfs_make_rule_(
+orfs_floorplan = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "2_floorplan",
         steps = ["do-floorplan"],
-        result_names = [
-            "2_floorplan.odb",
-            "2_floorplan.sdc",
-        ],
         log_names = [
             "2_1_floorplan.log",
             "2_2_floorplan_io.log",
@@ -898,18 +910,19 @@ orfs_floorplan = add_orfs_make_rule_(
             "2_floorplan_final.rpt",
         ],
     ),
-    attrs = openroad_attrs(),
+    attrs = openroad_attrs() | output_attrs([
+        "2_floorplan.odb",
+        "2_floorplan.sdc",
+    ]),
+    provides = flow_provides(),
+    executable = True,
 )
 
-orfs_place = add_orfs_make_rule_(
+orfs_place = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "3_place",
         steps = ["do-place"],
-        result_names = [
-            "3_place.odb",
-            "3_place.sdc",
-        ],
         log_names = [
             "3_1_place_gp_skip_io.log",
             "3_2_place_iop.log",
@@ -919,17 +932,19 @@ orfs_place = add_orfs_make_rule_(
         ],
         report_names = [],
     ),
+    attrs = openroad_attrs() | output_attrs([
+        "3_place.odb",
+        "3_place.sdc",
+    ]),
+    provides = flow_provides(),
+    executable = True,
 )
 
-orfs_cts = add_orfs_make_rule_(
+orfs_cts = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "4_cts",
         steps = ["do-cts"],
-        result_names = [
-            "4_cts.odb",
-            "4_cts.sdc",
-        ],
         log_names = [
             "4_1_cts.log",
         ],
@@ -937,9 +952,15 @@ orfs_cts = add_orfs_make_rule_(
             "4_cts_final.rpt",
         ],
     ),
+    attrs = openroad_attrs() | output_attrs([
+        "4_cts.odb",
+        "4_cts.sdc",
+    ]),
+    provides = flow_provides(),
+    executable = True,
 )
 
-orfs_grt = add_orfs_make_rule_(
+orfs_grt = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "5_1_grt",
@@ -949,9 +970,6 @@ orfs_grt = add_orfs_make_rule_(
         forwarded_names = [
             "4_cts.sdc",
         ],
-        result_names = [
-            "5_1_grt.odb",
-        ],
         log_names = [
             "5_1_grt.log",
         ],
@@ -960,12 +978,14 @@ orfs_grt = add_orfs_make_rule_(
             "congestion.rpt",
         ],
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    attrs = openroad_attrs() | output_attrs([
+        "5_1_grt.odb",
+    ]),
+    provides = flow_provides(),
     executable = True,
 )
 
-orfs_route = add_orfs_make_rule_(
+orfs_route = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "5_2_route",
@@ -975,10 +995,6 @@ orfs_route = add_orfs_make_rule_(
             "do-5_route",
             "do-5_route.sdc",
         ],
-        result_names = [
-            "5_route.odb",
-            "5_route.sdc",
-        ],
         log_names = [
             "5_2_route.log",
             "5_3_fillcell.log",
@@ -987,19 +1003,19 @@ orfs_route = add_orfs_make_rule_(
             "5_route_drc.rpt",
         ],
     ),
+    attrs = openroad_attrs() | output_attrs([
+        "5_route.odb",
+        "5_route.sdc",
+    ]),
+    provides = flow_provides(),
+    executable = True,
 )
 
-orfs_final = add_orfs_make_rule_(
+orfs_final = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_final",
         steps = ["do-final"],
-        result_names = [
-            "6_final.gds",
-            "6_final.odb",
-            "6_final.sdc",
-            "6_final.spef",
-        ],
         object_names = [
             "klayout.lyt",
         ],
@@ -1014,6 +1030,14 @@ orfs_final = add_orfs_make_rule_(
             "VSS.rpt",
         ],
     ),
+    attrs = openroad_attrs() | output_attrs([
+        "6_final.gds",
+        "6_final.odb",
+        "6_final.sdc",
+        "6_final.spef",
+    ]),
+    provides = flow_provides(),
+    executable = True,
 )
 
 def _extensionless_basename(file):
@@ -1037,8 +1061,8 @@ orfs_abstract = rule(
         extra_arguments =
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
+    attrs = openroad_attrs() | output_attrs([]),
+    provides = flow_provides(),
     executable = True,
 )
 
