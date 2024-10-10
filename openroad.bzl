@@ -1293,6 +1293,7 @@ def orfs_flow(
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments
+      stage_outputs: dictionary keyed by ORFS stages with dicts of stage-specific output renames
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
       extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
