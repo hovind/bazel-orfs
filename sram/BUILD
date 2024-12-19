@@ -45,6 +45,10 @@ FAST_SETTINGS = {
     },
     variant = variant,
     verilog_files = [":fakeram/sdq_17x64.sv"],
+    tags = {
+        "naja": ["manual"],
+        "naja-error": ["manual"],
+    }.get(variant, []),
 ) for variant in [
     "base",
     "mock-naja",
@@ -104,6 +108,7 @@ genrule(
     ],
     outs = ["naja.v"],
     cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -a all -p $(location :sdq_17x64_synth_mergedlib) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
+    tags = ["manual"],
 )
 
 genrule(
