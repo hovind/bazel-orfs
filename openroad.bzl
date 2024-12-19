@@ -1425,7 +1425,7 @@ def orfs_flow(
         variant = None,
         mock_area = None,
         previous_stage = {},
-        visibility = ["//visibility:private"]):
+        **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -1442,7 +1442,6 @@ def orfs_flow(
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
-      visibility: the visibility attribute on a target controls whether the target can be used in other packages
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
     """
     if variant == "base":
@@ -1461,8 +1460,8 @@ def orfs_flow(
         abstract_stage = abstract_stage,
         variant = variant,
         abstract_variant = abstract_variant,
-        visibility = visibility,
         previous_stage = previous_stage,
+        **kwargs
     )
 
     if not mock_area:
@@ -1492,8 +1491,8 @@ def orfs_flow(
         abstract_stage = "floorplan",
         variant = mock_variant,
         abstract_variant = None,
-        visibility = visibility,
         previous_stage = {},
+        **kwargs
     )
 
     orfs_run(
@@ -1505,6 +1504,7 @@ def orfs_flow(
         },
         outs = ["{}.mk".format(mock_area_name)],
         script = "@bazel-orfs//:mock_area.tcl",
+        **kwargs
     )
 
     orfs_macro(
@@ -1512,7 +1512,7 @@ def orfs_flow(
         lef = _step_name(name, mock_variant, ABSTRACT_IMPL.stage),
         lib = _step_name(name, abstract_variant, ABSTRACT_IMPL.stage),
         module_top = name,
-        visibility = visibility,
+        **kwargs
     )
 
 def _kwargs(stage, **kwargs):
@@ -1531,8 +1531,8 @@ def _orfs_pass(
         abstract_stage,
         variant,
         abstract_variant,
-        visibility,
-        previous_stage):
+        previous_stage,
+        **kwargs):
     steps = []
     for step in STAGE_IMPLS:
         steps.append(step)
@@ -1559,7 +1559,6 @@ def _orfs_pass(
             module_top = name,
             variant = variant,
             verilog_files = verilog_files,
-            visibility = visibility,
         )
         orfs_deps(
             name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
@@ -1581,13 +1580,13 @@ def _orfs_pass(
             data = get_sources(step.stage, stage_sources, sources),
             extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
-            visibility = visibility,
-            **_kwargs(
+            **(kwargs | _kwargs(
                 step.stage,
                 renamed_inputs = renamed_inputs,
-            )
+            ))
         )
         orfs_deps(
             name = "{}_deps".format(step_name),
             src = step_name,
+            **kwargs
         )
