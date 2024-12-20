@@ -1,6 +1,7 @@
 """Sweep OpenROAD stages"""
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run", "set")
+load("@pip//:requirements.bzl", "requirement")
 load(":write_binary.bzl", "write_binary")
 
 all_stages = [
@@ -137,13 +138,23 @@ def orfs_sweep(
         visibility = visibility,
     )
 
-    native.genrule(
-        name = name + "_plot_repair",
+    native.py_binary(
+        name = name + "_plot_repair_binary",
+        main = "plot-retiming.py",
         srcs = [
             "plot-retiming.py",
+        ],
+        deps = [requirement("matplotlib")],
+        visibility = visibility,
+    )
+    native.genrule(
+        name = name + "_plot_repair",
+        tools = [name + "_plot_repair_binary"],
+        srcs = [
             name + "_repair_logs",
+            name + "_plot_repair_binary",
         ],
         outs = [name + "_retiming.pdf"],
-        cmd = "$(location plot-retiming.py) $(location " + name + "_retiming.pdf) $(locations " + name + "_repair_logs)",
+        cmd = "$(locations :" + name + "_plot_repair_binary) $(location " + name + "_retiming.pdf) $(locations " + name + "_repair_logs)",
         visibility = visibility,
     )
