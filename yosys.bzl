@@ -9,8 +9,13 @@ def _yosys_impl(ctx):
         arguments = ctx.attr.arguments,
         command = ctx.executable._yosys.path,
         inputs = depset(
-            ctx.files.srcs,
-            transitive = [depset([ctx.executable._yosys])],
+            ctx.files.srcs + [
+                ctx.executable._yosys,
+            ],
+            transitive = [
+                ctx.attr._yosys[DefaultInfo].default_runfiles.files,
+                ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
+            ],
         ),
         outputs = outs,
     )
