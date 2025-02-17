@@ -5,9 +5,9 @@ def _yosys_impl(ctx):
     for k in dir(ctx.outputs):
         outs.extend(getattr(ctx.outputs, k))
 
-    ctx.actions.run_shell(
+    ctx.actions.run(
         arguments = ctx.attr.arguments,
-        command = ctx.executable._yosys.path,
+        executable = ctx.executable._yosys,
         inputs = depset(
             ctx.files.srcs + [
                 ctx.executable._yosys,
