@@ -464,6 +464,6 @@ yosys(
     outs = ["alu.json"],
     arguments = [
         "-p",
-        "read_verilog $(location alu.v); write_json $@",
+        "read_verilog $(location alu.v); proc; write_json $(location alu.json)",
     ],
 )
